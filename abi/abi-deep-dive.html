@@ -436,6 +436,7 @@
     <li><a href="#s4">C++ ABI 问题</a> — vtable、名称修饰、GCC5 双 ABI、WG21 决策</li>
     <li><a href="#s5">其他语言的 ABI</a> — Swift、Go、Python、.NET</li>
     <li><a href="#s6">工程实践</a> — SONAME、符号版本化、libabigail、最佳实践</li>
+    <li><a href="#s7">Target Triple 与 libc 变体</a> — gnu vs musl、msvc vs gnu、manylinux、实际工程影响</li>
   </ol>
 </nav>
 
@@ -1026,11 +1027,354 @@ objdump -T libfoo.so | grep GLIBC</code></pre>
 </section>
 
 <!-- ══════════════════════════════════════════
+     SECTION 7 — Target Triple 与 libc 变体
+══════════════════════════════════════════ -->
+<section id="s7">
+  <p class="section-num">第七章</p>
+  <h2 class="section-title">Target Triple 与 libc 变体：同是 C ABI，也会不兼容</h2>
+
+  <p>一个容易被忽视的事实是：<strong>即使两个二进制都使用"C ABI"，它们仍然可能无法互操作</strong>。原因在于 C ABI 之下还有一层——libc 实现与工具链运行时的差异。这正是 target triple 存在的意义：它精确编码了 ABI 的每一个维度，包括 libc 变体。</p>
+
+  <h3>Target Triple 的结构</h3>
+
+  <!-- 图7：Target Triple 结构 -->
+  <div class="diagram-card">
+    <svg width="100%" viewBox="0 0 680 400" role="img">
+      <title>Target Triple 四段结构与典型示例</title>
+      <defs>
+        <marker id="arr7" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </marker>
+      </defs>
+
+      <!-- 标题 -->
+      <g class="c-purple">
+        <rect x="30" y="10" width="620" height="32" rx="8" stroke-width="0.5"/>
+        <text class="th" x="340" y="30" text-anchor="middle" dominant-baseline="central">Target Triple（四元组）：arch - vendor - os - abi/env</text>
+      </g>
+
+      <!-- 四段结构分解 -->
+      <g class="c-teal">
+        <rect x="30"  y="58" width="138" height="52" rx="8" stroke-width="0.5"/>
+        <text class="th" x="99"  y="76"  text-anchor="middle" dominant-baseline="central">arch</text>
+        <text class="ts" x="99"  y="96"  text-anchor="middle">x86_64 / aarch64</text>
+      </g>
+      <g class="c-gray">
+        <rect x="178" y="58" width="138" height="52" rx="8" stroke-width="0.5"/>
+        <text class="th" x="247" y="76"  text-anchor="middle" dominant-baseline="central">vendor</text>
+        <text class="ts" x="247" y="96"  text-anchor="middle">pc / unknown / apple</text>
+      </g>
+      <g class="c-blue">
+        <rect x="326" y="58" width="138" height="52" rx="8" stroke-width="0.5"/>
+        <text class="th" x="395" y="76"  text-anchor="middle" dominant-baseline="central">os</text>
+        <text class="ts" x="395" y="96"  text-anchor="middle">linux / windows / none</text>
+      </g>
+      <g class="c-coral">
+        <rect x="474" y="58" width="176" height="52" rx="8" stroke-width="0.5"/>
+        <text class="th" x="562" y="76"  text-anchor="middle" dominant-baseline="central">abi / env</text>
+        <text class="ts" x="562" y="96"  text-anchor="middle">gnu / musl / msvc / gnueabihf</text>
+      </g>
+
+      <!-- 连接线 -->
+      <text class="ts" x="168" y="88" text-anchor="middle">-</text>
+      <text class="ts" x="316" y="88" text-anchor="middle">-</text>
+      <text class="ts" x="464" y="88" text-anchor="middle">-</text>
+
+      <!-- 典型 Triple 示例表 -->
+      <rect x="30" y="128" width="620" height="16" rx="4" fill="none" stroke-width="0"/>
+      <text class="ts" x="340" y="141" text-anchor="middle">典型 Target Triple 示例</text>
+
+      <!-- 表头 -->
+      <rect x="30" y="150" width="620" height="26" rx="0" fill="#f1efe8" stroke-width="0"/>
+      <text class="ts" x="40"  y="167" font-weight="700">Triple</text>
+      <text class="ts" x="290" y="167" font-weight="700">libc / 运行时</text>
+      <text class="ts" x="460" y="167" font-weight="700">典型用途</text>
+
+      <!-- 行1 -->
+      <rect x="30" y="176" width="620" height="28" rx="0" fill="none" stroke-width="0.5" stroke="#e2e0d8"/>
+      <text class="ts" x="40" y="194" font-family="monospace" font-size="11">x86_64-unknown-linux-gnu</text>
+      <text class="ts" x="290" y="194">动态链接 glibc</text>
+      <text class="ts" x="460" y="194">默认 Linux 开发目标</text>
+
+      <!-- 行2 -->
+      <rect x="30" y="204" width="620" height="28" rx="0" fill="#f7f6f2" stroke-width="0.5" stroke="#e2e0d8"/>
+      <text class="ts" x="40" y="222" font-family="monospace" font-size="11">x86_64-unknown-linux-musl</text>
+      <text class="ts" x="290" y="222">静态链接 musl</text>
+      <text class="ts" x="460" y="222">容器/嵌入式静态二进制</text>
+
+      <!-- 行3 -->
+      <rect x="30" y="232" width="620" height="28" rx="0" fill="none" stroke-width="0.5" stroke="#e2e0d8"/>
+      <text class="ts" x="40" y="250" font-family="monospace" font-size="11">x86_64-pc-windows-msvc</text>
+      <text class="ts" x="290" y="250">MSVC CRT（UCRT / MSVCRT）</text>
+      <text class="ts" x="460" y="250">Windows 原生 Rust/C++ 开发</text>
+
+      <!-- 行4 -->
+      <rect x="30" y="260" width="620" height="28" rx="0" fill="#f7f6f2" stroke-width="0.5" stroke="#e2e0d8"/>
+      <text class="ts" x="40" y="278" font-family="monospace" font-size="11">x86_64-pc-windows-gnu</text>
+      <text class="ts" x="290" y="278">MinGW-w64 + libgcc</text>
+      <text class="ts" x="460" y="278">跨平台 GCC 工具链 Windows 目标</text>
+
+      <!-- 行5 -->
+      <rect x="30" y="288" width="620" height="28" rx="0" fill="none" stroke-width="0.5" stroke="#e2e0d8"/>
+      <text class="ts" x="40" y="306" font-family="monospace" font-size="11">aarch64-apple-darwin</text>
+      <text class="ts" x="290" y="306">Apple libc（libSystem）</text>
+      <text class="ts" x="460" y="306">Apple Silicon macOS</text>
+
+      <!-- 行6 -->
+      <rect x="30" y="316" width="620" height="28" rx="0" fill="#f7f6f2" stroke-width="0.5" stroke="#e2e0d8"/>
+      <text class="ts" x="40" y="334" font-family="monospace" font-size="11">armv7-unknown-linux-gnueabihf</text>
+      <text class="ts" x="290" y="334">glibc + 硬浮点 ABI（VFP）</text>
+      <text class="ts" x="460" y="334">树莓派等 ARMv7 嵌入式</text>
+
+      <!-- 行7 -->
+      <rect x="30" y="344" width="620" height="28" rx="0" fill="none" stroke-width="0.5" stroke="#e2e0d8"/>
+      <text class="ts" x="40" y="362" font-family="monospace" font-size="11">aarch64-linux-android</text>
+      <text class="ts" x="290" y="362">Bionic libc（Google）</text>
+      <text class="ts" x="460" y="362">Android NDK</text>
+
+      <!-- 关键提示 -->
+      <rect x="30" y="382" width="620" height="10" rx="0" fill="none" stroke-width="0"/>
+      <text class="ts" x="340" y="392" text-anchor="middle" fill="#a32d2d">⚠ abi/env 字段不同 → libc 不同 → 符号/行为不同 → 二进制不可混用</text>
+    </svg>
+    <div class="diagram-caption"><strong>图 7 · Target Triple 四段结构</strong> — 第四段（abi/env）决定 libc 实现，是区分 gnu/musl/msvc/gnueabihf 等变体的关键字段。即使 arch 和 os 相同，abi/env 不同的二进制也不可互操作。</div>
+  </div>
+
+  <h3>Linux：gnu（glibc）vs musl</h3>
+  <p>这是 Linux 生态中最核心的 libc 分裂，影响范围从 Rust 编译目标到 Docker 镜像选择，到 PyPI wheel 标签，无处不在。</p>
+
+  <!-- 图8：glibc vs musl 对比 -->
+  <div class="diagram-card">
+    <svg width="100%" viewBox="0 0 680 470" role="img">
+      <title>Linux glibc vs musl ABI 差异对比</title>
+      <defs>
+        <marker id="arr8" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </marker>
+      </defs>
+
+      <!-- 列标题 -->
+      <g class="c-blue">
+        <rect x="30"  y="10" width="295" height="32" rx="8" stroke-width="0.5"/>
+        <text class="th" x="177" y="30" text-anchor="middle" dominant-baseline="central">glibc（x86_64-unknown-linux-gnu）</text>
+      </g>
+      <g class="c-teal">
+        <rect x="355" y="10" width="295" height="32" rx="8" stroke-width="0.5"/>
+        <text class="th" x="502" y="30" text-anchor="middle" dominant-baseline="central">musl（x86_64-unknown-linux-musl）</text>
+      </g>
+
+      <!-- 行1：链接方式 -->
+      <text class="ts" x="177" y="62" text-anchor="middle" fill="#6b6a65">链接方式</text>
+      <text class="ts" x="502" y="62" text-anchor="middle" fill="#6b6a65">链接方式</text>
+      <g class="c-coral">
+        <rect x="30"  y="70" width="295" height="30" rx="6" stroke-width="0.5"/>
+        <text class="th" x="177" y="89" text-anchor="middle" dominant-baseline="central" font-size="12">动态链接（默认）→ 依赖系统 libc.so.6</text>
+      </g>
+      <g class="c-teal">
+        <rect x="355" y="70" width="295" height="30" rx="6" stroke-width="0.5"/>
+        <text class="th" x="502" y="89" text-anchor="middle" dominant-baseline="central" font-size="12">静态链接（默认）→ 零运行时依赖</text>
+      </g>
+
+      <!-- 行2：符号版本化 -->
+      <text class="ts" x="177" y="122" text-anchor="middle" fill="#6b6a65">符号版本化</text>
+      <text class="ts" x="502" y="122" text-anchor="middle" fill="#6b6a65">符号版本化</text>
+      <rect x="30"  y="130" width="295" height="42" rx="6" fill="none" stroke-width="0.5" stroke="#5f5e5a"/>
+      <text class="ts" x="177" y="147" text-anchor="middle" font-family="monospace" font-size="10">memcpy@@GLIBC_2.14</text>
+      <text class="ts" x="177" y="163" text-anchor="middle">有版本标签 → 决定最低系统要求</text>
+      <rect x="355" y="130" width="295" height="42" rx="6" fill="none" stroke-width="0.5" stroke="#5f5e5a"/>
+      <text class="ts" x="502" y="147" text-anchor="middle" font-family="monospace" font-size="10">memcpy  (无版本标签)</text>
+      <text class="ts" x="502" y="163" text-anchor="middle">无版本化 → 可在任何 musl 系统运行</text>
+
+      <!-- 行3：pthread_t -->
+      <text class="ts" x="177" y="196" text-anchor="middle" fill="#6b6a65">pthread_t 内部结构</text>
+      <text class="ts" x="502" y="196" text-anchor="middle" fill="#6b6a65">pthread_t 内部结构</text>
+      <g class="c-gray">
+        <rect x="30"  y="204" width="295" height="30" rx="6" stroke-width="0.5"/>
+        <text class="ts" x="177" y="223" text-anchor="middle" font-size="11">不透明指针，结构体布局历史演变</text>
+      </g>
+      <g class="c-gray">
+        <rect x="355" y="204" width="295" height="30" rx="6" stroke-width="0.5"/>
+        <text class="ts" x="502" y="223" text-anchor="middle" font-size="11">不同的不透明指针，内部不兼容</text>
+      </g>
+
+      <!-- 行4：dlopen TLS -->
+      <text class="ts" x="177" y="258" text-anchor="middle" fill="#6b6a65">dlopen + TLS（线程局部存储）</text>
+      <text class="ts" x="502" y="258" text-anchor="middle" fill="#6b6a65">dlopen + TLS</text>
+      <g class="c-teal">
+        <rect x="30"  y="266" width="295" height="30" rx="6" stroke-width="0.5"/>
+        <text class="ts" x="177" y="285" text-anchor="middle" font-size="11">支持 dlopen 后的动态 TLS 分配</text>
+      </g>
+      <g class="c-amber">
+        <rect x="355" y="266" width="295" height="30" rx="6" stroke-width="0.5"/>
+        <text class="ts" x="502" y="285" text-anchor="middle" font-size="11">⚠ 静态链接时 dlopen TLS 有限制</text>
+      </g>
+
+      <!-- 行5：malloc 行为 -->
+      <text class="ts" x="177" y="320" text-anchor="middle" fill="#6b6a65">malloc 实现行为</text>
+      <text class="ts" x="502" y="320" text-anchor="middle" fill="#6b6a65">malloc 实现行为</text>
+      <rect x="30"  y="328" width="295" height="42" rx="6" fill="none" stroke-width="0.5" stroke="#5f5e5a"/>
+      <text class="ts" x="177" y="345" text-anchor="middle" font-size="11">ptmalloc2，多 arena，高并发性能好</text>
+      <text class="ts" x="177" y="361" text-anchor="middle" font-size="11">但内存碎片多、RSS 可能虚高</text>
+      <rect x="355" y="328" width="295" height="42" rx="6" fill="none" stroke-width="0.5" stroke="#5f5e5a"/>
+      <text class="ts" x="502" y="345" text-anchor="middle" font-size="11">自研 malloc，内存紧凑，RSS 低</text>
+      <text class="ts" x="502" y="361" text-anchor="middle" font-size="11">但高并发下吞吐低于 glibc</text>
+
+      <!-- 互不兼容结论 -->
+      <rect x="30" y="388" width="620" height="48" rx="8" fill="none" stroke-width="0.5" stroke="#a32d2d"/>
+      <text class="th" x="340" y="406" text-anchor="middle" dominant-baseline="central" fill="#a32d2d" font-size="13">glibc 编译的 .so 不能加载进 musl 进程（反之亦然）</text>
+      <text class="ts" x="340" y="426" text-anchor="middle" fill="#a32d2d">两者 libc SONAME 不同：libc.so.6 vs libc.musl-x86_64.so.1</text>
+
+      <!-- 分隔线 -->
+      <line x1="340" y1="10" x2="340" y2="380" stroke="#e2e0d8" stroke-width="0.5" stroke-dasharray="4 3"/>
+
+      <!-- 底部：manylinux -->
+      <rect x="30" y="444" width="620" height="20" rx="4" fill="none" stroke-width="0"/>
+      <text class="ts" x="340" y="458" text-anchor="middle" fill="#6b6a65">Python wheel 标签：linux_x86_64（裸）/ manylinux_2_17_x86_64 / musllinux_1_2_x86_64</text>
+    </svg>
+    <div class="diagram-caption"><strong>图 8 · glibc vs musl 核心差异</strong> — 同是 Linux + C ABI，glibc 动态链接有版本化符号约束，musl 静态链接无运行时依赖；两者的 SONAME 不同，编译产物不可混用。</div>
+  </div>
+
+  <h4>glibc：符号版本化与最低系统版本</h4>
+  <p>glibc 用版本化符号精确表达 ABI 演进。编译时链接的 glibc 版本决定了二进制的最低运行环境：</p>
+  <pre><code># 查看二进制依赖的最低 glibc 版本
+$ objdump -T my_binary | grep GLIBC | awk -F'GLIBC_' '{print $2}' | sort -V | tail -1
+2.29
+
+# 或者用 readelf
+$ readelf -V my_binary | grep GLIBC
+  0x00: 0x00 0x00 Name: GLIBC_2.5
+  0x10: 0x01 0x00 Name: GLIBC_2.17
+  0x20: 0x02 0x00 Name: GLIBC_2.29   ← 这决定了最低 glibc 版本要求
+
+# Rust 编译到 musl 得到真正静态二进制
+$ cargo build --target x86_64-unknown-linux-musl --release
+$ file target/x86_64-unknown-linux-musl/release/mybin
+mybin: ELF 64-bit LSB executable, x86-64, statically linked  ← 无外部依赖
+
+# vs gnu 目标
+$ file target/x86_64-unknown-linux-gnu/release/mybin
+mybin: ELF 64-bit LSB pie executable, dynamically linked, interpreter /lib64/ld-linux-x86-64.so.2</code></pre>
+
+  <h4>musl 的限制：dlopen + 静态 TLS</h4>
+  <p>musl 静态链接时，运行时 <code>dlopen</code> 加载的动态库如果用了 <code>__thread</code>（TLS），可能遇到 <code>RTLD_NOW</code> 时的 TLS 槽位耗尽问题——musl 静态链接镜像在启动时固定了 TLS 块大小，后续 <code>dlopen</code> 无法扩展。这是 musl 最著名的工程陷阱之一，导致如 Python C 扩展（需要 <code>dlopen</code>）在纯静态 musl 目标上无法正常使用。</p>
+
+  <div class="callout warning">
+    <div class="callout-label">⚠ 实际陷阱</div>
+    <p>glibc 编译的共享库（如商业 SDK 的 <code>.so</code>）<strong>不能</strong>在 Alpine Linux（musl）容器中运行，即使架构相同。反向亦然：musl 静态二进制通常可以在 glibc 系统运行（因为它无运行时依赖），但这是单向的。</p>
+  </div>
+
+  <h3>Windows：msvc vs gnu（MinGW）</h3>
+  <p>Windows 上 Rust 的两个主要目标 <code>x86_64-pc-windows-msvc</code> 和 <code>x86_64-pc-windows-gnu</code> 使用完全不同的 C 运行时，形成了真实的 ABI 边界。</p>
+
+  <table class="compare-table">
+    <thead>
+      <tr><th>维度</th><th>windows-msvc</th><th>windows-gnu（MinGW-w64）</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>C 运行时</strong></td>
+        <td>UCRT（Universal CRT，Windows 10+）<br>或 MSVCRT.dll（旧版）</td>
+        <td>链接 UCRT 或旧 msvcrt.dll + libgcc + libstdc++</td>
+      </tr>
+      <tr>
+        <td><strong>FILE* 跨边界</strong></td>
+        <td colspan="2">⚠ <strong>绝对禁止</strong>：不同 CRT 有各自的 FILE 结构，跨 msvc/gnu 边界传递 FILE* 导致崩溃</td>
+      </tr>
+      <tr>
+        <td><strong>malloc/free 配对</strong></td>
+        <td colspan="2">⚠ <strong>必须在同一 CRT 内配对</strong>：msvc 分配的内存不能用 gnu 的 free 释放</td>
+      </tr>
+      <tr>
+        <td><strong>C++ 异常</strong></td>
+        <td>SEH（Structured Exception Handling）</td>
+        <td>DWARF 或 SJLJ（setjmp/longjmp），不能跨边界</td>
+      </tr>
+      <tr>
+        <td><strong>Rust 默认目标</strong></td>
+        <td>Windows 上安装 Rust 的默认目标，推荐</td>
+        <td>需显式安装，适合 MSYS2/Cygwin 环境</td>
+      </tr>
+      <tr>
+        <td><strong>工具链要求</strong></td>
+        <td>需安装 VS Build Tools（link.exe / cl.exe）</td>
+        <td>只需 GCC 工具链，无需 Visual Studio</td>
+      </tr>
+      <tr>
+        <td><strong>互操作对象</strong></td>
+        <td>与 MSVC 编译的 DLL/lib 直接兼容</td>
+        <td>与 MinGW 生态兼容，与 MSVC 需 C ABI 桥接</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <pre><code>// 跨 CRT 边界传 FILE* 是经典错误：
+// lib_a 用 msvc 编译，lib_b 用 mingw 编译
+// 下面这段代码在 Windows 上是 UB / 崩溃：
+FILE* f = lib_a_fopen("foo.txt", "r");   // msvc CRT 的 FILE 结构
+lib_b_fread(buf, 1, 64, f);             // mingw CRT 尝试解读不同布局的 FILE*  ← 💥
+
+// 正确做法：通过 C ABI 传文件描述符（int fd）而非 FILE*
+int fd = lib_a_open_fd("foo.txt");
+lib_b_read_fd(fd, buf, 64);             // OS 层面的 fd，跨 CRT 安全</code></pre>
+
+  <h3>ARM 变体：gnueabi vs gnueabihf</h3>
+  <p>ARM 上 ABI 还有软硬浮点之分，即使都是 glibc：</p>
+  <table class="compare-table">
+    <thead><tr><th>Triple</th><th>浮点传参方式</th><th>典型硬件</th></tr></thead>
+    <tbody>
+      <tr><td><code>arm-unknown-linux-gnueabi</code></td><td>用整数寄存器传浮点（软浮点 ABI）</td><td>无 VFP 的老 ARM，或需最大兼容性</td></tr>
+      <tr><td><code>arm-unknown-linux-gnueabihf</code></td><td>用 VFP 浮点寄存器传参（硬浮点 ABI）</td><td>Cortex-A 系列，Raspberry Pi 2+</td></tr>
+      <tr><td><code>aarch64-unknown-linux-gnu</code></td><td>始终硬浮点（AArch64 规范强制）</td><td>Raspberry Pi 4/5，服务器 ARM</td></tr>
+    </tbody>
+  </table>
+  <p><code>gnueabi</code> 和 <code>gnueabihf</code> 的浮点函数调用约定不同，混链会导致浮点参数被错误读取，是嵌入式交叉编译中最常见的 ABI 错误之一。</p>
+
+  <h3>manylinux：Python 如何解决 glibc 版本碎片</h3>
+  <p>PyPI 的 wheel 分发面临一个核心问题：用新 glibc 编译的 wheel 无法在旧 glibc 系统上运行。Python 社区通过一系列 PEP 定义了 <code>manylinux</code> 标准：</p>
+  <table class="compare-table">
+    <thead><tr><th>标签</th><th>PEP</th><th>最低 glibc</th><th>对应系统</th></tr></thead>
+    <tbody>
+      <tr><td><code>manylinux1</code></td><td>PEP 513</td><td>glibc 2.5</td><td>CentOS 5（2007）</td></tr>
+      <tr><td><code>manylinux2010</code></td><td>PEP 571</td><td>glibc 2.12</td><td>CentOS 6（2010）</td></tr>
+      <tr><td><code>manylinux2014</code></td><td>PEP 599</td><td>glibc 2.17</td><td>CentOS 7（2014）</td></tr>
+      <tr><td><code>manylinux_2_28</code></td><td>PEP 600</td><td>glibc 2.28</td><td>Debian 10 / RHEL 8</td></tr>
+      <tr><td><code>musllinux_1_2</code></td><td>PEP 656</td><td>musl 1.2</td><td>Alpine 3.13+</td></tr>
+    </tbody>
+  </table>
+  <p>实现方式：用特定的老版 CentOS Docker 镜像（现在是 <code>manylinux_2_28</code> 基于 AlmaLinux 8）编译，再用 <code>auditwheel repair</code> 工具把所有非系统 <code>.so</code> 打包进 wheel，并重写 <code>RPATH</code>。这样产出的 wheel 能在覆盖绝大多数现代 Linux 发行版。</p>
+  <pre><code># 诊断工具：检查二进制的实际 libc 依赖
+$ ldd mybin
+        linux-vdso.so.1 (0x...)
+        libc.so.6 => /lib/x86_64-linux-gnu/libc.so.6   ← glibc
+        /lib64/ld-linux-x86-64.so.2
+
+# musl 静态二进制：
+$ ldd mybin
+        not a dynamic executable                        ← 真正静态
+
+# 检查 musl vs glibc 解释器（ld-linux 路径也不同）
+$ file mybin_glibc
+  interpreter /lib64/ld-linux-x86-64.so.2              ← glibc loader
+$ file mybin_musl
+  interpreter /lib/ld-musl-x86_64.so.1                 ← musl loader
+
+# Rust：查看当前工具链支持的所有 target
+$ rustup target list --installed
+x86_64-unknown-linux-gnu      (installed)
+x86_64-unknown-linux-musl     (installed)
+x86_64-pc-windows-msvc        (installed)</code></pre>
+
+  <div class="callout tip">
+    <div class="callout-label">💡 工程建议</div>
+    <p>容器化部署优先考虑 <code>x86_64-unknown-linux-musl</code> 静态编译（Rust / C with musl-gcc），得到真正零依赖的 <code>FROM scratch</code> 镜像。需要与系统动态库（CUDA、OpenSSL 系统版）交互时才退回 gnu 目标，并用 <code>manylinux</code> 基础镜像控制 glibc 版本上限。Windows 生态中 Rust 推荐 <code>windows-msvc</code> 作为主目标，仅在需要纯 GCC 工具链时使用 <code>windows-gnu</code>，任何情况下都不要跨 CRT 边界传递 <code>FILE*</code>、内存分配对象或 C++ 异常。</p>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════
      FOOTER
 ══════════════════════════════════════════ -->
 <footer class="doc-footer">
   <span>ABI 深度调研报告 · 2026 年 6 月</span>
-  <span>参考：System V ABI · Itanium C++ ABI · Rust RFC 2603 · WG21 P1654R0 · GCC Dual ABI</span>
+  <span>参考：System V ABI · Itanium C++ ABI · Rust RFC 2603 · WG21 P1654R0 · GCC Dual ABI · PEP 513/571/599/600/656</span>
 </footer>
 
 </div><!-- .page-wrap -->
