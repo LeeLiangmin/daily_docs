@@ -26,23 +26,23 @@ safe binding 层存在的唯一目的：**把裸指针的语义"翻译"成 Rust 
 
 ```mermaid
 flowchart TD
-    A[C 侧原始指针参数/返回值] --> B{代表单个不透明对象?}
-    B -->|是| B1{谁负责释放?}
-    B1 -->|Rust侧持有并需释放| B2[owned wrapper + Drop]
-    B1 -->|仅借用，生命周期不归Rust管| B3[&T / &mut T 借用包装]
-    B -->|否| C{代表连续内存 buffer?}
-    C -->|是，带长度| C1{Rust侧拥有内存?}
-    C1 -->|是| C2[owned buffer wrapper + Drop]
-    C1 -->|否，只是查看| C3[&[u8] / &mut [u8]]
-    C -->|否| D{代表 NUL 结尾字符串?}
-    D -->|是| D1{所有权归C，需专门free?}
-    D1 -->|是| D2[owned CStr wrapper + Drop]
-    D1 -->|否，借用即可| D3[即时转 &str/String，不长期持有]
-    D -->|否| E{可能为 NULL 表示可选?}
-    E -->|是| E1[Option<T> 包装对应类型]
-    E -->|否| F{代表回调上下文 void*?}
-    F -->|是| F1[闭包 + trampoline，userdata 内部管理]
-    F -->|否| G[人工评估：可能需要暴露受限 unsafe API]
+    A["C 侧原始指针参数/返回值"] --> B{"代表单个不透明对象?"}
+    B -->|是| B1{"谁负责释放?"}
+    B1 -->|Rust侧持有并需释放| B2["owned wrapper 加 Drop"]
+    B1 -->|仅借用，生命周期不归Rust管| B3["借用包装 T 引用 或 可变引用"]
+    B -->|否| C{"代表连续内存 buffer?"}
+    C -->|是，带长度| C1{"Rust侧拥有内存?"}
+    C1 -->|是| C2["owned buffer wrapper 加 Drop"]
+    C1 -->|否，只是查看| C3["借用切片 u8 slice"]
+    C -->|否| D{"代表 NUL 结尾字符串?"}
+    D -->|是| D1{"所有权归C，需专门free?"}
+    D1 -->|是| D2["owned CStr wrapper 加 Drop"]
+    D1 -->|否，借用即可| D3["即时转 str 或 String，不长期持有"]
+    D -->|否| E{"可能为 NULL 表示可选?"}
+    E -->|是| E1["Option 包装对应类型"]
+    E -->|否| F{"代表回调上下文 void 指针?"}
+    F -->|是| F1["闭包加 trampoline，userdata 内部管理"]
+    F -->|否| G["人工评估：可能需要暴露受限 unsafe API"]
 ```
 
 ---
