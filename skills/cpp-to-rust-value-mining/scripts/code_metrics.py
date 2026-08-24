@@ -34,6 +34,7 @@ C_PATTERNS = {
     "不安全字符串函数": r"\b(strcpy|strcat|sprintf|gets|memcpy|strncpy|alloca)\s*\(",
     "互斥锁操作": r"\b(pthread_mutex_(lock|unlock)|EnterCriticalSection|std::lock_guard)",
     "宏定义": r"^\s*#\s*define\s+\w+",
+    "宏泛型展开（DEFINE_/DECLARE_ 调用）": r"^\s*(DEFINE|DECLARE|IMPL)_[A-Z_]+\s*\(",
     "TODO/FIXME/HACK/XXX": r"\b(TODO|FIXME|HACK|XXX)\b",
     "约定型注释（必须/不要/仅限）": r"(//|/\*|\*)\s*.*(must |should |do not |don't |caller |注意|必须|不要|仅|只能|需先|调用方)",
     "errno 使用": r"\berrno\b",
@@ -157,6 +158,37 @@ def report(res):
         print(f"{name:<40}{n:>8}{per_kloc(n, res['code_lines']):>10}")
 
 
+BUILD_FILES = {"Makefile", "makefile", "GNUmakefile", "CMakeLists.txt",
+               "configure.ac", "Makefile.am", "meson.build"}
+BUILD_PATTERNS = {
+    "平台/条件分支": r"^\s*(ifeq|ifneq|ifdef|ifndef|if\s*\(|elseif|else\s+if)\b",
+    "平台判断关键字": r"\b(WIN32|_WIN32|MSVC|APPLE|Darwin|Linux|UNIX|MINGW|ANDROID)\b",
+    "手写编译/链接选项": r"^\s*(CFLAGS|LDFLAGS|CXXFLAGS|LIBS)\s*[+:]?=",
+}
+
+
+def scan_build(root, label):
+    """维度 5：构建系统的复杂度计数。"""
+    compiled = {k: re.compile(v, re.MULTILINE) for k, v in BUILD_PATTERNS.items()}
+    counts, files, lines = Counter(), [], 0
+    for dirpath, dirnames, filenames in os.walk(root):
+        dirnames[:] = [d for d in dirnames if d not in SKIP_DIRS and not d.startswith(".")]
+        for fn in filenames:
+            if fn in BUILD_FILES or fn.endswith(".cmake") or fn in ("Cargo.toml", "build.rs"):
+                path = os.path.join(dirpath, fn)
+                files.append(os.path.relpath(path, root))
+                try:
+                    content = open(path, encoding="utf-8", errors="replace").read()
+                except OSError:
+                    continue
+                lines += content.count("\n") + 1
+                for name, rx in compiled.items():
+                    n = len(rx.findall(content))
+                    if n:
+                        counts[name] += n
+    return {"label": label, "files": files, "lines": lines, "counts": dict(counts)}
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -167,9 +199,18 @@ def main():
 
     old = scan(args.old, C_EXT, C_PATTERNS, "旧实现 (C/C++)")
     new = scan(args.new, RUST_EXT, RUST_PATTERNS, "新实现 (Rust)")
+    old_b = scan_build(args.old, "旧实现构建")
+    new_b = scan_build(args.new, "新实现构建")
 
     report(old)
     report(new)
+
+    print("\n=== 维度 5：构建系统对比 ===")
+    for b in (old_b, new_b):
+        print(f"\n{b['label']}: {len(b['files'])} 个文件, {b['lines']} 行")
+        print(f"  文件: {', '.join(b['files'][:6]) or '（无）'}")
+        for k, v in sorted(b["counts"].items(), key=lambda x: -x[1]):
+            print(f"  {k}: {v}")
 
     print("\n=== 值得关注的几个比值 ===")
     unsafe_n = new["patterns"].get("unsafe 块/函数", 0)
@@ -204,7 +245,7 @@ def main():
 
     if args.json:
         with open(args.json, "w", encoding="utf-8") as f:
-            json.dump({"old": old, "new": new,
+            json.dump({"old": old, "new": new, "old_build": old_b, "new_build": new_b,
                        "caveat": "正则计数，存在假阳性；用于量级比较，非精确统计。"},
                       f, ensure_ascii=False, indent=2)
         print(f"结果已写入 {args.json}")

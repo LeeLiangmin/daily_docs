@@ -21,13 +21,14 @@ from collections import defaultdict
 # 模式同时匹配 commit message；--deep 模式下也匹配 diff 内容。
 CATEGORIES = {
     "memory_uaf": (
-        r"use[- ]?after[- ]?free|uaf|dangling|悬垂|野指针|释放后",
+        r"use[- ]?after[- ]?free|uaf|dangling|悬垂|野指针|释放后|已释放|脏数据",
         True,
     ),
     "memory_double_free": (r"double[- ]?free|重复释放|二次释放", True),
     "memory_leak": (r"\bleak|泄漏|泄露|memleak|forgot to free|漏.{0,4}释放", True),
     "memory_overflow": (
-        r"buffer overflow|overrun|out[- ]of[- ]bounds|\boob\b|越界|溢出|off[- ]by[- ]one",
+        r"buffer overflow|overrun|out[- ]of[- ]bounds|\boob\b|越界|溢出|off[- ]by[- ]one|"
+        r"\b(strcpy|strcat|sprintf|memcpy|gets)\b|未限长|覆盖栈|畸形包|长度.{0,4}(校验|检查)",
         True,
     ),
     "null_deref": (
@@ -41,7 +42,7 @@ CATEGORIES = {
     ),
     "concurrency_lock_misuse": (
         r"missing (un)?lock|forgot.{0,10}(un)?lock|忘记.{0,6}(加锁|解锁|unlock)|"
-        r"未加锁|漏.{0,4}解锁|unlock.{0,10}(遗漏|缺失)|锁未释放",
+        r"未加锁|漏.{0,6}解锁|unlock[^，。；\n]{0,10}(遗漏|缺失)|锁未释放|忘记[^，。；\\n]{0,20}(加锁|解锁|lock|unlock)|(加锁|解锁)[^，。；\\n]{0,10}遗漏",
         True,  # 忘记加/解锁：Rust 的 MutexGuard 能结构性排除
     ),
     "concurrency_deadlock": (
@@ -58,11 +59,15 @@ CATEGORIES = {
         True,
     ),
     "type_confusion": (
-        r"type confusion|wrong cast|bad cast|类型.{0,4}错|signed|unsigned|truncat|窄化",
+        r"type confusion|wrong cast|bad cast|类型.{0,4}错|signed|unsigned|truncat|窄化|"
+        r"传参.{0,4}[写弄反]|参数.{0,4}[写弄反]|传反|用错.{0,6}(参数|字段)|混用|当作[^，。；\\n]{0,10}类型|错误类型|强转|误当成",
         True,
     ),
     "state_machine": (
-        r"missing case|unhandled (case|state|enum)|switch.{0,10}(default|case)|漏.{0,4}分支|状态.{0,4}遗漏",
+        r"missing case|unhandled (case|state|enum)|switch.{0,10}(default|case)|"
+        r"[漏遗][^，。；\n]{0,24}(分支|case|switch|枚举|状态)|"
+        r"(分支|case|switch)[^，。；\n]{0,16}[漏遗]|补[上全][^，。；\n]{0,20}(分支|case)|"
+        r"状态[^，。；\n]{0,6}遗漏|缺[少失][^，。；\n]{0,16}(分支|case|处理|状态)|未处理[^，。；\n]{0,10}(状态|分支)",
         True,
     ),
     "logic_business": (
@@ -194,7 +199,8 @@ def main():
     print(f"其中判定为修复型: {fix_total}")
     print(f"命中缺陷类别: {sum(len(v) for v in buckets.values())} 次"
           f"（{multi_hit} 个 commit 命中多个类别，存在重复计数）")
-    print(f"未能归类的修复型 commit: {len(unclassified)}")
+    unc_rate = len(unclassified) / fix_total * 100 if fix_total else 0
+    print(f"未能归类的修复型 commit: {len(unclassified)}（{unc_rate:.0f}%）")
     print()
     print(f"{'类别':<24}{'数量':>6}  Rust 可结构性防止")
     print("-" * 56)
@@ -211,6 +217,13 @@ def main():
     print(f"  其中 Rust 可结构性排除: {len(dedup_rust)}  ({pct:.0f}%)")
     print(f"  Rust 无帮助（死锁/逻辑/配置等）: {len(dedup_not_rust)}")
     print()
+
+    if unclassified and not args.category:
+        print(f"\n### 未能归类（{len(unclassified)} 条，需人工过一遍）")
+        print("  关键词法在 commit message 不规范时退化明显；这批里往往藏着真素材，")
+        print("  尤其是变更成本类的证据（用 find_change_cost.py 专门挖）。")
+        for c in unclassified[: args.show if args.show else 10]:
+            print(f"  {c['hash'][:10]}  {c['date']}  {c['subject'][:80]}")
 
     show_cats = [args.category] if args.category else list(buckets.keys())
     for name in show_cats:
