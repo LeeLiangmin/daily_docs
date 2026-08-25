@@ -1,0 +1,70 @@
+# Working schema for one value-discovery finding.
+# This is intentionally human-readable rather than tied to a validator.
+
+id: CASE-001
+title: "<human-readable title>"
+priority: critical   # critical | major | supporting
+confidence: high    # high | medium | low
+
+scope:
+  subsystem: "<name>"
+  old_locations:
+    - path: "<old path>"
+      symbol: "<symbol>"
+      revision: "<optional revision>"
+  new_locations:
+    - path: "<new path>"
+      symbol: "<symbol>"
+      revision: "<optional revision>"
+
+why_important:
+  summary: "<why this is core/representative>"
+  signals:
+    - core_path
+    - high_fan_in
+
+before:
+  design: "<old design model>"
+  code_excerpt: |
+    // real focused C/C++ excerpt
+  assumptions_or_invariants:
+    - "<implicit rule>"
+  failure_or_maintenance_modes:
+    - "<concrete issue>"
+
+after:
+  design: "<new Rust design model>"
+  code_excerpt: |
+    // real focused Rust excerpt
+  encoded_constraints:
+    - "<new rule or representation>"
+
+semantic_change:
+  summary: "<what fundamentally changed>"
+
+values:
+  - name: "<value created>"
+    impact: high
+    explanation: "<engineering consequence>"
+    origins:
+      - kind: rust_driven_design
+        mechanisms:
+          - ownership
+          - message_passing
+        explanation: "<why this origin matters>"
+      - kind: general_redesign
+        explanation: "<language-independent portion>"
+
+counterfactual_cpp:
+  remains_if_modern_cpp: "<what remains valuable>"
+  rust_difference: "<what is driven/enforced differently>"
+
+tradeoffs:
+  - "<cost or remaining risk>"
+
+evidence:
+  source_pair: true
+  git_history: "<reference or note>"
+  tests: "<reference or note>"
+  issues: "<reference or note>"
+  graph_context: "<GitNexus/call graph note>"

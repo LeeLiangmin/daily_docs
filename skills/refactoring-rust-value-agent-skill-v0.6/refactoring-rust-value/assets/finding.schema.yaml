@@ -1,0 +1,144 @@
+# Working schema for v0.6 value-discovery findings.
+# Portable and human-readable; not tied to a validator.
+
+id: FINDING-001
+title: "<local finding title>"
+priority: major       # critical | major | supporting
+case_disposition: standalone   # standalone | merge_into_root | supporting_only | reject
+value_density_reason: "<why this deserves or does not deserve a standalone case>"
+confidence: high      # high | medium | low
+
+scope:
+  subsystem: "<name>"
+  old_locations:
+    - path: "<old path>"
+      symbol: "<symbol>"
+      revision: "<optional revision>"
+  new_locations:
+    - path: "<new path>"
+      symbol: "<symbol>"
+      revision: "<optional revision>"
+
+root_cause:
+  cluster_id: "CLUSTER-001"
+  root_transformation: "<deep design/representation/authority change>"
+  relationship: consequence   # root | consequence | independent
+  thesis_role: consequence     # primary | secondary | consequence | independent
+  causal_test: "<would this finding still exist without the root transformation?>"
+
+value_chain:
+  historical_constraint: "<real legacy requirement/compatibility/representation>"
+  old_design_mechanism: "<mechanism used to satisfy it>"
+  old_complexity:
+    - "<state/rollback/lifetime/synchronization/error-plumbing burden>"
+  old_proof_obligations:
+    - "<what developers/reviewers had to remember or prove>"
+  new_rust_model: "<new ownership/state/API/concurrency/domain model>"
+  became_unnecessary:
+    - "<mechanism or reasoning burden that disappeared>"
+  remaining_obligations:
+    - "<runtime/unsafe/FFI/lock/business constraints that remain>"
+
+before:
+  design: "<actual old design model>"
+  code_excerpt: |
+    // real focused C/C++ excerpt
+  assumptions_or_invariants:
+    - "<implicit rule>"
+  failure_or_maintenance_modes:
+    - "<concrete issue>"
+
+after:
+  design: "<actual new Rust design model>"
+  code_excerpt: |
+    // real focused Rust excerpt
+  encoded_constraints:
+    - "<new rule or representation>"
+
+claim_control:
+  strongest_claim_level: structural   # observed_fact | structural | safety_guarantee | likely | potential
+  canonical_wording: "<single wording strength to reuse consistently across summary/body/conclusion>"
+  bug_prevention_evidence: "<issue/test/CVE/concrete guarantee or none>"
+  behavioral_parity_evidence: "<mapped+executed cross-implementation tests / rust-only tests / partial / none>"
+  performance_evidence: "<benchmark / asymptotic proof / none>"
+  memory_safety_scope: "<specific old failure modes removed; never 'all memory bugs'>"
+  concurrency_scope: "<Send/Sync/shared mutation/actual architecture distinction>"
+
+semantic_change:
+  summary: "<what fundamentally changed>"
+  representation_shift: "<optional: incidental representation -> domain representation>"
+
+values:
+  - name: "<root engineering value>"
+    impact: high
+    qualification:
+      - structural        # structural | safety | maintainability | rust_driven | conditional | compatibility | tradeoff
+    condition: "<required only for conditional value>"
+    explanation: "<engineering consequence>"
+    consequences:
+      - "<downstream improvement; not necessarily a separate value>"
+    origins:
+      - kind: rust_driven_design
+        mechanisms:
+          - ownership
+        explanation: "<why Rust helped shape the design>"
+      - kind: rust_guarantee
+        mechanisms:
+          - borrow_checker
+        explanation: "<precise compiler/safe-Rust guarantee>"
+      - kind: general_redesign
+        explanation: "<language-independent portion>"
+
+complexity_evidence:
+  removed_mechanisms:
+    - "<helper/state/protocol removed>"
+  affected_old_symbols:
+    - "<optional concrete symbols/call sites>"
+  new_equivalent: "<none / simpler mechanism / moved boundary>"
+  quantitative_claims:
+    - value: "<optional number>"
+      unit: "<LOC / references / symbols / tests / call-sites>"
+      scope: "<files/revisions included>"
+      method: "<grep/query/manual mapping rule; exclusions stated>"
+  note: "<prefer structural evidence over fake precision>"
+
+# Optional. Calibration only; never replaces the actual legacy baseline.
+counterfactual_modern_cpp:
+  enabled: false
+  comparable_facilities:
+    - "<std::variant/std::expected/RAII/etc. if relevant>"
+  remains_if_used: "<which redesign value would remain>"
+  rust_difference: "<which guarantees/idioms differ>"
+  historical_note: "<why this was not the actual legacy baseline, if known>"
+
+tradeoffs:
+  - "<cost or remaining risk>"
+
+compatibility_changes:
+  - "<behavior/API/failure/scope change that is not automatically value>"
+
+evidence_mode:
+  observed:
+    - "<directly visible evidence>"
+  inferred:
+    - "<strong interpretation from evidence>"
+  counterfactual:
+    - "<hypothetical calibration only>"
+
+evidence:
+  source_pair: true
+  git_history: "<reference or note>"
+  tests: "<reference or note>"
+  issues: "<reference or note>"
+  graph_context: "<GitNexus/call graph note>"
+
+
+reporting:
+  language: zh-CN
+  preserve_english_terms:
+    - "<only canonical technical terms / symbols>"
+  concise_case: true
+  final_case_merge_checked: true
+  standalone_reason: "<independent contract/root importance, or merge it>"
+  avoid_repetition_with:
+    - "<cluster/case/thesis already carrying same claim>"
