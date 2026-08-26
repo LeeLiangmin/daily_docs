@@ -83,3 +83,46 @@ GitNexus is optional. For large repositories it can help discover central compon
 - Focus deep analysis on important/core/representative cases.
 - No evidence, no strong claim.
 - Final output is a detailed, human-readable Markdown engineering report.
+
+
+## v0.6 analysis principles
+
+- Actual legacy C/C++ → actual Rust is the primary comparison.
+- Modern C++ is only an optional counterfactual for attribution calibration.
+- Strong cases should reconstruct a causal value chain and look for complexity collapse.
+- Important claims distinguish observed evidence, inference, and counterfactual reasoning.
+- Technical guardrails prevent common Rust/C++ overclaims.
+
+
+## v0.6 analysis upgrades
+
+- Root-cause clustering: merge local consequences into causal cases.
+- Transformation Thesis: synthesize system-level migration stories.
+- Value qualification: distinguish structural/safety gains from conditional simplification, compatibility change, and trade-offs.
+- Complexity evidence: prefer concrete removed mechanisms/call sites over fake numeric scores.
+- Reality-first comparison remains mandatory; modern C++ is calibration only.
+
+
+## v0.6 writing contract
+
+By default, generated reports are written in Chinese, retaining only necessary English technical terms, identifiers, and code. The report should follow “信、达、雅”: technically faithful, easy for engineers to understand, and concise without template-driven repetition.
+
+The v0.6 analysis pipeline is:
+
+```text
+raw findings
+→ root-cause clustering
+→ value-density filtering
+→ consequence suppression
+→ thesis hierarchy
+→ concise Chinese engineering narrative
+```
+
+
+## v0.6 convergence rules
+
+- One root transformation normally maps to one main case; downstream consequences stay inside it.
+- Reports default to six conceptual sections and remove redundant system-summary chapters.
+- Quantitative claims include reproducible counting scope/method.
+- Behavior parity claims require mapped, executed cross-implementation evidence for the covered cases.
+- Claim wording remains consistent across summary, body, and conclusion.

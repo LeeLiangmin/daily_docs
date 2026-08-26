@@ -1,96 +1,67 @@
 # C/C++ → Rust 重构价值分析
 
-## 1. Executive Summary
+> v0.6 默认采用紧凑叙事。模板是骨架，不是表单；能合并就合并。
 
-用面向架构师/技术管理者的语言总结最重要的发现。不要限制发现数量，但优先呈现最有影响的变化。
+## 1. 执行摘要：核心转型
 
-回答：
-- 整个系统最根本的设计变化是什么？
-- 重构创造了哪些主要工程价值？
-- 哪些价值明显由 Rust 的设计模型、类型系统、ownership 或并发模型驱动/保证？
-- 哪些仍然属于语言无关的优秀重新设计？
-- 是否存在显著 trade-off 或剩余风险？
+用 2–4 段回答：
 
-## 2. 分析范围与方法
+- 真实 legacy C/C++ 的根设计/历史约束是什么；
+- Rust 实现最根本改变了什么；
+- 哪一组复杂机制、证明义务或误用路径因此整体消失；
+- Rust 在这里是设计推动力、类型保证，还是主要只是实现语言；
+- 最重要的 trade-off / compatibility change 是什么。
 
-- Old C/C++ revision/path:
-- New Rust revision/path:
-- migration range:
-- repository scale:
-- tools used:
-- evidence limitations:
+不要先列 Rust feature。必要时再给 3–6 个高密度结论。
 
-说明只对重要/典型案例做深度分析，而不是平均审计所有代码。
+## 2. 系统 Before / After
 
-## 3. 系统级 Before / After
+简洁说明真实 baseline、范围和最关键设计变化。只保留会影响后文价值判断的信息。
 
-### 3.1 旧 C/C++ 系统设计
+可选使用一张对比表。modern C++ counterfactual 不作为 baseline。
 
-### 3.2 新 Rust 系统设计
+## 3. 核心案例
 
-### 3.3 核心变化
+先完成 root-cause clustering 与 consequence suppression。**同一根转型通常只保留一个主案例。**
 
-可使用 Mermaid：
+### 案例 1：<用工程变化命名>
 
-```mermaid
-flowchart LR
-  Old[Old model] --> New[New model]
-```
+自然组织 3–5 个部分即可：
 
-## 4. 价值地图
+- 旧设计为何需要这些机制，并给 Before 代码；
+- 新 Rust 如何重新建模，并给 After 代码；
+- 什么复杂度/证明义务不再需要；
+- 工程价值与 Rust 的作用；
+- 必要的 trade-off / evidence boundary。
 
-| 价值 | 相关核心案例 | 主要来源 | 影响范围 |
-|---|---|---|---|
-| ... | ... | General redesign / Rust-driven design / type system / ownership / concurrency | ... |
+不要把同一 ownership 根因的 API lifetime、parser、rollback、Reset 等后果再写成平级案例，除非它们有独立系统重要性。
 
-此表只作为导航；详细论证必须在案例章节展开。
+### 案例 2：...
 
-## 5. 典型案例分析
+按价值密度继续，不设数量指标。
 
-> 案例数量不设固定上限。Critical/Major 案例详细写，Supporting 案例可以更短。
+## 4. 支持性发现
 
-### Case 1 — ...
+用短段落或紧凑表格收纳低密度但有帮助的发现，例如局部 parser 简化、测试/构建生态、非核心 API 变化。
 
-使用 `CASE_TEMPLATE.md` 的结构。
+不重复核心案例。
 
-### Case 2 — ...
+## 5. 权衡、兼容性与证据边界
 
-...
+合并处理：
 
-## 6. 跨案例的系统性价值
+- conditional simplification / scope reduction；
+- API/行为/failure-policy 变化；
+- clone/allocation/lock/FFI/unsafe 成本；
+- 尚未验证的性能或兼容性；
+- Observed / Inferred / Counterfactual 边界。
 
-### 6.1 架构与模块边界
+所有数字都必须说明统计口径。没有 mapped + executed parity evidence 时，不声称“行为等价”。
 
-### 6.2 Ownership / 生命周期模型
+## 6. 结论
 
-### 6.3 状态与类型建模
+用 2–4 段回到核心转型：
 
-### 6.4 无畏并发与并发设计
+> 这次重构到底改变了什么工程现实？什么不再需要维护？Rust 为什么推动或保证了这种变化？代价是什么？
 
-### 6.5 Error / API contract
-
-### 6.6 Unsafe / FFI 边界
-
-只写实际存在并有多个案例支持的主题；不要为了模板完整而硬凑章节。
-
-## 7. Rust 驱动的设计变化
-
-重点回答：哪些设计并非简单“先设计好再由 Rust 加保证”，而是 Rust 的模型本身推动形成了新的架构、状态模型、ownership 或 concurrency 方案？
-
-## 8. 与语言无关的重构价值
-
-明确指出那些即使使用 C++ 重新实现也依然成立的架构/模块/API/测试价值。
-
-## 9. Trade-offs 与剩余风险
-
-例如：
-- Arc/Mutex/clone/分配成本
-- async complexity
-- unsafe/FFI obligations
-- migration compatibility layers
-- build/dependency costs
-- missing tests or unresolved mappings
-
-## 10. 总结
-
-不要写成 Rust 宣传稿。总结“这次重构究竟改变了什么工程现实”。
+不要逐条重复前文价值列表。

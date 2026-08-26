@@ -47,3 +47,11 @@ Writing-quality and signal-density release based on the v0.4 `simpleini` evaluat
 ## 0.4.0
 
 - Root-cause clustering, Transformation Thesis, value qualification, domain-aligned representation, and complexity evidence.
+
+## 0.6.1
+
+- Added Rust-native design-pattern analysis as a value-discovery lens rather than a pattern inventory.
+- Added guidance for ownership-oriented models, typestate, newtype, RAII/guards, builders, iterators, trait composition, enum dispatch, single-owner task/message passing, interior mutability, capability values, and safe unsafe/FFI abstractions.
+- Added pattern-role attribution: design driver, invariant carrier, enforcement mechanism, implementation idiom.
+- Added technical guardrails to prevent pattern-name inflation and unsupported “Rust pattern = value” claims.
+- Kept the v0.6 report structure and compression rules unchanged.

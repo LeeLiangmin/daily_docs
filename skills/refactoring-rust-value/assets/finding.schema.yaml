@@ -1,10 +1,12 @@
-# Working schema for one value-discovery finding.
-# This is intentionally human-readable rather than tied to a validator.
+# Working schema for v0.6.1 value-discovery findings.
+# Portable and human-readable; not tied to a validator.
 
-id: CASE-001
-title: "<human-readable title>"
-priority: critical   # critical | major | supporting
-confidence: high    # high | medium | low
+id: FINDING-001
+title: "<local finding title>"
+priority: major       # critical | major | supporting
+case_disposition: standalone   # standalone | merge_into_root | supporting_only | reject
+value_density_reason: "<why this deserves or does not deserve a standalone case>"
+confidence: high      # high | medium | low
 
 scope:
   subsystem: "<name>"
@@ -17,14 +19,28 @@ scope:
       symbol: "<symbol>"
       revision: "<optional revision>"
 
-why_important:
-  summary: "<why this is core/representative>"
-  signals:
-    - core_path
-    - high_fan_in
+root_cause:
+  cluster_id: "CLUSTER-001"
+  root_transformation: "<deep design/representation/authority change>"
+  relationship: consequence   # root | consequence | independent
+  thesis_role: consequence     # primary | secondary | consequence | independent
+  causal_test: "<would this finding still exist without the root transformation?>"
+
+value_chain:
+  historical_constraint: "<real legacy requirement/compatibility/representation>"
+  old_design_mechanism: "<mechanism used to satisfy it>"
+  old_complexity:
+    - "<state/rollback/lifetime/synchronization/error-plumbing burden>"
+  old_proof_obligations:
+    - "<what developers/reviewers had to remember or prove>"
+  new_rust_model: "<new ownership/state/API/concurrency/domain model>"
+  became_unnecessary:
+    - "<mechanism or reasoning burden that disappeared>"
+  remaining_obligations:
+    - "<runtime/unsafe/FFI/lock/business constraints that remain>"
 
 before:
-  design: "<old design model>"
+  design: "<actual old design model>"
   code_excerpt: |
     // real focused C/C++ excerpt
   assumptions_or_invariants:
@@ -33,34 +49,91 @@ before:
     - "<concrete issue>"
 
 after:
-  design: "<new Rust design model>"
+  design: "<actual new Rust design model>"
   code_excerpt: |
     // real focused Rust excerpt
   encoded_constraints:
     - "<new rule or representation>"
 
+claim_control:
+  strongest_claim_level: structural   # observed_fact | structural | safety_guarantee | likely | potential
+  canonical_wording: "<single wording strength to reuse consistently across summary/body/conclusion>"
+  bug_prevention_evidence: "<issue/test/CVE/concrete guarantee or none>"
+  behavioral_parity_evidence: "<mapped+executed cross-implementation tests / rust-only tests / partial / none>"
+  performance_evidence: "<benchmark / asymptotic proof / none>"
+  memory_safety_scope: "<specific old failure modes removed; never 'all memory bugs'>"
+  concurrency_scope: "<Send/Sync/shared mutation/actual architecture distinction>"
+
+rust_pattern_analysis:
+  detected_patterns:
+    - name: "<ownership-oriented model / typestate / newtype / RAII guard / iterator / trait composition / enum dispatch / single-owner task / etc.>"
+      role: design_driver   # design_driver | invariant_carrier | enforcement_mechanism | implementation_idiom
+      legacy_mechanism_replaced: "<actual old mechanism>"
+      invariant_or_responsibility: "<what the pattern now expresses/carries>"
+      complexity_removed: "<what old mechanism/proof burden disappeared>"
+      report_prominence: major   # major | supporting | omit
+  note: "Do not inventory patterns; omit patterns with no demonstrated migration value."
+
 semantic_change:
   summary: "<what fundamentally changed>"
+  representation_shift: "<optional: incidental representation -> domain representation>"
 
 values:
-  - name: "<value created>"
+  - name: "<root engineering value>"
     impact: high
+    qualification:
+      - structural        # structural | safety | maintainability | rust_driven | conditional | compatibility | tradeoff
+    condition: "<required only for conditional value>"
     explanation: "<engineering consequence>"
+    consequences:
+      - "<downstream improvement; not necessarily a separate value>"
     origins:
       - kind: rust_driven_design
         mechanisms:
           - ownership
-          - message_passing
-        explanation: "<why this origin matters>"
+        explanation: "<why Rust helped shape the design>"
+      - kind: rust_guarantee
+        mechanisms:
+          - borrow_checker
+        explanation: "<precise compiler/safe-Rust guarantee>"
       - kind: general_redesign
         explanation: "<language-independent portion>"
 
-counterfactual_cpp:
-  remains_if_modern_cpp: "<what remains valuable>"
-  rust_difference: "<what is driven/enforced differently>"
+complexity_evidence:
+  removed_mechanisms:
+    - "<helper/state/protocol removed>"
+  affected_old_symbols:
+    - "<optional concrete symbols/call sites>"
+  new_equivalent: "<none / simpler mechanism / moved boundary>"
+  quantitative_claims:
+    - value: "<optional number>"
+      unit: "<LOC / references / symbols / tests / call-sites>"
+      scope: "<files/revisions included>"
+      method: "<grep/query/manual mapping rule; exclusions stated>"
+  note: "<prefer structural evidence over fake precision>"
+
+# Optional. Calibration only; never replaces the actual legacy baseline.
+counterfactual_modern_cpp:
+  enabled: false
+  comparable_facilities:
+    - "<std::variant/std::expected/RAII/etc. if relevant>"
+  remains_if_used: "<which redesign value would remain>"
+  rust_difference: "<which guarantees/idioms differ>"
+  historical_note: "<why this was not the actual legacy baseline, if known>"
 
 tradeoffs:
   - "<cost or remaining risk>"
+
+compatibility_changes:
+  - "<behavior/API/failure/scope change that is not automatically value>"
+
+evidence_mode:
+  observed:
+    - "<directly visible evidence>"
+  inferred:
+    - "<strong interpretation from evidence>"
+  counterfactual:
+    - "<hypothetical calibration only>"
 
 evidence:
   source_pair: true
@@ -68,3 +141,14 @@ evidence:
   tests: "<reference or note>"
   issues: "<reference or note>"
   graph_context: "<GitNexus/call graph note>"
+
+
+reporting:
+  language: zh-CN
+  preserve_english_terms:
+    - "<only canonical technical terms / symbols>"
+  concise_case: true
+  final_case_merge_checked: true
+  standalone_reason: "<independent contract/root importance, or merge it>"
+  avoid_repetition_with:
+    - "<cluster/case/thesis already carrying same claim>"

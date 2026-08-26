@@ -228,3 +228,48 @@ Strong evidence may include:
 - trait-bound propagation
 - ownership compiler failures during change
 - smaller dependency blast radius
+
+
+## 16. Complexity collapse / deleted reasoning burden
+
+Potential value:
+- an old representation invariant disappears entirely
+- several helper mechanisms become unnecessary together
+- rollback/state synchronization/manual lifetime protocols are deleted
+- reviewers no longer need to reason across distant code paths to prove correctness
+
+Look for clusters of deleted or simplified mechanisms, not just LOC reduction. Ask what old code existed solely because of the previous design model.
+
+This category often deserves higher priority than a locally strong Rust feature substitution because it captures system-level refactoring value.
+
+## Domain-aligned representation
+
+Look for migrations where the new representation expresses the domain concept directly instead of inferring it from incidental storage/container topology.
+
+Examples:
+
+```text
+adjacent equal keys in multimap → EntryValue::Single | Multi
+integer tag + payload pointer → enum variant with payload
+flag combinations → state enum
+nullptr sentinel → Option<T>
+container position/order convention → explicit relationship/state
+```
+
+Potential value:
+- fewer implicit representation invariants;
+- state transitions concentrated in one model;
+- less defensive checking and topology-dependent logic;
+- code review can reason in domain terms rather than storage mechanics.
+
+Do not claim this is Rust-exclusive. Attribute Rust when ADTs/pattern matching/ownership materially shaped the design or enforce the representation.
+
+## Conditional simplification
+
+Look for complexity collapse caused by intentionally narrowing requirements, such as dropping old encodings, platforms, ABI modes, dynamic plugin formats, or recovery semantics.
+
+This is real engineering simplification, but qualify it as conditional on the removed capability being unnecessary for the target scope.
+
+## Rust-native design-pattern lens
+
+When the new design appears to follow a Rust-native pattern, use [rust-design-patterns.md](rust-design-patterns.md) to decide whether that pattern is a real value source or only an implementation idiom. Patterns should strengthen causal analysis, not create a separate checklist chapter.

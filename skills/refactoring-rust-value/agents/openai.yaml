@@ -1,9 +1,0 @@
-interface:
-  display_name: "refactoring rust value"
-policy:
-  products:
-    - "chatgpt"
-    - "codex"
-    - "api"
-    - "atlas"
-  allow_implicit_invocation: true

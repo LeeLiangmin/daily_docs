@@ -136,3 +136,22 @@ If a claim is already a consequence of a selected root transformation, do not re
 - parser purity caused by abandoning pointer-backed parsing;
 - rollback/helper deletion caused by building fresh owned state;
 - Reset simplification caused by the same ownership model.
+
+## Rust design-pattern claims
+
+Do not turn the report into a Rust pattern catalog. A pattern name is useful only when it explains a real migration value.
+
+Before naming a pattern, answer:
+
+1. What legacy mechanism did it replace?
+2. What invariant or design responsibility does the new pattern carry?
+3. What complexity/proof obligation disappeared or became more local?
+4. Is Rust the design driver, an enforcement mechanism, or only an idiomatic implementation choice?
+
+Examples:
+
+- `Builder` alone is not a value; immutable construction that removes order-sensitive setters may be.
+- `Iterator` alone is not a value; removing manual pointer/index state may be.
+- `Actor`/single-owner task is not a value unless shared-state/lock/callback coordination actually shrinks.
+- `Newtype` is valuable when it prevents semantic mixing or centralizes validation, not merely when it wraps a primitive.
+- `Typestate` must mean state encoded in distinct types/generic states; enum state modeling should be named accurately.
