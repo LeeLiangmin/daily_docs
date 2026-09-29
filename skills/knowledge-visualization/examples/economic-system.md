@@ -4,8 +4,6 @@
 
 How can a complex economy be understood as a system?
 
-Traceable rewrite (§0): *When a firm pays one month of wages, where does that money go and how does it come back to the firm?* Traced object: one wage payment. Tracked quantity: money. End condition: the money returns as revenue (or leaks to taxes/savings).
-
 ## Cognitive target
 
 Understand interactions and feedback rather than memorize sectors.
