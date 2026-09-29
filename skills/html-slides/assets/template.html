@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>演示标题</title>
+<style>
+/* =========================================================
+   主题：只改这里的变量即可换风格
+   ========================================================= */
+:root {
+  --bg: #fbfaf7;
+  --surface: #f1efe9;
+  --text: #1b1b1f;
+  --muted: #6b6b73;
+  --line: #dcd9d0;
+  --accent: #c2410c;        /* 主强调色 */
+  --accent-soft: #fbe6da;
+  --accent-2: #1d4ed8;      /* 次强调色，用于对比 */
+  --ok: #15803d;
+  --warn: #b45309;
+  --bad: #b91c1c;
+  --code-bg: #1e1e24;
+  --code-text: #e6e6ea;
+
+  --font: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", "Source Han Sans SC", system-ui, sans-serif;
+  --mono: "JetBrains Mono", "SFMono-Regular", "Cascadia Code", Consolas, "Liberation Mono", monospace;
+
+  --pad-x: 120px;
+  --pad-y: 96px;
+}
+[data-theme="dark"] {
+  --bg: #16161a;
+  --surface: #222228;
+  --text: #ececf0;
+  --muted: #9a9aa6;
+  --line: #34343c;
+  --accent: #fb923c;
+  --accent-soft: #3a2518;
+  --accent-2: #60a5fa;
+  --ok: #4ade80;
+  --warn: #fbbf24;
+  --bad: #f87171;
+  --code-bg: #0e0e12;
+}
+
+/* =========================================================
+   引擎：固定 1920×1080 画布，等比缩放适配窗口
+   ========================================================= */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; background: #000; overflow: hidden; }
+body { font-family: var(--font); color: var(--text); -webkit-font-smoothing: antialiased; }
+
+.deck {
+  position: fixed; left: 50%; top: 50%;
+  width: 1920px; height: 1080px;
+  transform: translate(-50%, -50%) scale(var(--scale, 1));
+  transform-origin: center center;
+}
+.slide {
+  position: absolute; inset: 0;
+  width: 1920px; height: 1080px;
+  background: var(--bg);
+  padding: var(--pad-y) var(--pad-x);
+  display: flex; flex-direction: column;
+  overflow: hidden;
+  visibility: hidden; opacity: 0;
+  transition: opacity .25s ease;
+}
+.slide.active { visibility: visible; opacity: 1; }
+.slide .notes { display: none; }
+
+/* 逐步显示：给元素加 class="step" */
+.step { transition: opacity .25s ease, transform .25s ease; }
+.step:not(.shown) { opacity: 0; transform: translateY(12px); }
+
+/* 界面：进度条、页码、提示 */
+.ui-progress { position: fixed; left: 0; bottom: 0; height: 4px; background: var(--accent); z-index: 10; transition: width .25s ease; }
+.ui-page { position: fixed; right: 20px; bottom: 14px; color: #888; font: 14px var(--mono); z-index: 10; }
+.ui-warn { position: fixed; left: 16px; top: 16px; z-index: 20; background: var(--bad); color: #fff; font: 14px var(--font); padding: 8px 12px; border-radius: 6px; display: none; }
+.ui-notes { position: fixed; left: 0; right: 0; bottom: 0; max-height: 30vh; overflow: auto; background: rgba(20,20,24,.94); color: #eee; font: 18px/1.6 var(--font); padding: 16px 24px 28px; z-index: 15; display: none; }
+.ui-notes.open { display: block; }
+.ui-help { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(0,0,0,.6); z-index: 30; }
+.ui-help.open { display: flex; }
+.ui-help div { background: #fff; color: #222; padding: 28px 36px; border-radius: 10px; font: 16px/2 var(--font); }
+.ui-help kbd { font: 14px var(--mono); background: #eee; border: 1px solid #ccc; border-radius: 4px; padding: 1px 6px; margin-right: 8px; }
+
+/* 总览模式（按 O） */
+body.overview { overflow: auto; background: #111; }
+body.overview .deck { position: static; transform: none; width: auto; height: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(400px, 1fr)); gap: 24px; padding: 24px; }
+body.overview .slide { position: relative; visibility: visible; opacity: 1; zoom: .2; cursor: pointer; outline: 6px solid transparent; }
+body.overview .slide.active { outline-color: var(--accent); }
+body.overview .slide.overflow { outline-color: var(--bad); }
+body.overview .step { opacity: 1; transform: none; }
+body.overview .ui-progress, body.overview .ui-page { display: none; }
+
+/* 打印 / 导出 PDF：每页一张幻灯片，所有逐步元素全部显示 */
+@page { size: 1920px 1080px; margin: 0; }
+@media print {
+  html, body { background: #fff; overflow: visible; height: auto; }
+  .deck { position: static; transform: none; width: 1920px; height: auto; }
+  .slide { position: relative; visibility: visible; opacity: 1; page-break-after: always; break-after: page; }
+  .step { opacity: 1 !important; transform: none !important; }
+  .ui-progress, .ui-page, .ui-warn, .ui-notes, .ui-help { display: none !important; }
+  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
+
+/* =========================================================
+   排版基础
+   ========================================================= */
+.slide h1 { font-size: 96px; line-height: 1.15; font-weight: 800; letter-spacing: -.01em; }
+.slide h2 { font-size: 60px; line-height: 1.2; font-weight: 750; margin-bottom: 48px; }
+.slide h3 { font-size: 36px; line-height: 1.3; font-weight: 700; margin-bottom: 16px; }
+.slide p, .slide li { font-size: 34px; line-height: 1.6; }
+.slide .lead { font-size: 40px; line-height: 1.5; color: var(--muted); }
+.slide .small { font-size: 26px; color: var(--muted); }
+.slide strong { color: var(--accent); font-weight: 700; }
+.slide ul, .slide ol { padding-left: 1.2em; display: flex; flex-direction: column; gap: 18px; }
+.slide li::marker { color: var(--accent); }
+.slide code { font-family: var(--mono); font-size: .88em; background: var(--surface); padding: .08em .35em; border-radius: 6px; }
+.eyebrow { font-size: 26px; letter-spacing: .12em; color: var(--accent); font-weight: 700; margin-bottom: 20px; text-transform: uppercase; }
+.body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.body.center { justify-content: center; padding-bottom: 60px; }
+.foot { margin-top: auto; padding-top: 24px; font-size: 22px; color: var(--muted); }
+
+/* =========================================================
+   版式（在 section 上加 class）
+   ========================================================= */
+
+/* 封面 */
+.layout-cover { justify-content: center; }
+.layout-cover h1 { font-size: 120px; max-width: 1500px; }
+.layout-cover .lead { margin-top: 40px; max-width: 1400px; }
+.layout-cover .meta { margin-top: 80px; font-size: 30px; color: var(--muted); display: flex; gap: 48px; }
+.layout-cover::after { content: ""; position: absolute; left: var(--pad-x); top: var(--pad-y); width: 120px; height: 12px; background: var(--accent); }
+
+/* 章节页 */
+.layout-section { justify-content: center; background: var(--text); color: var(--bg); }
+.layout-section .num { font-size: 200px; font-weight: 800; color: var(--accent); line-height: 1; margin-bottom: 24px; font-family: var(--mono); }
+.layout-section h1 { color: var(--bg); }
+.layout-section .lead { color: var(--line); margin-top: 32px; }
+
+/* 两栏 */
+.cols { display: grid; grid-template-columns: 1fr 1fr; gap: 80px; align-items: start; }
+.cols.stretch { flex: 1; min-height: 0; align-items: stretch; }
+.cols.w-6-4 { grid-template-columns: 3fr 2fr; }
+.cols.w-4-6 { grid-template-columns: 2fr 3fr; }
+.cols.three { grid-template-columns: 1fr 1fr 1fr; gap: 56px; }
+.card { background: var(--surface); border-radius: 20px; padding: 44px 48px; }
+.card.accent { background: var(--accent-soft); }
+.card h3 { margin-bottom: 20px; }
+
+/* 大数字 */
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: 56px; margin-top: 24px; }
+.stat .value { font-size: 128px; font-weight: 800; line-height: 1; color: var(--accent); font-family: var(--mono); letter-spacing: -.03em; }
+.stat .value small { font-size: .4em; margin-left: 8px; color: var(--muted); }
+.stat .label { font-size: 32px; margin-top: 20px; }
+.stat .desc { font-size: 24px; color: var(--muted); margin-top: 8px; line-height: 1.5; }
+
+/* 表格 */
+table.tbl { width: 100%; border-collapse: collapse; font-size: 28px; }
+.tbl th { text-align: left; font-weight: 700; color: var(--muted); font-size: 24px; letter-spacing: .04em; padding: 16px 20px; border-bottom: 3px solid var(--text); }
+.tbl td { padding: 18px 20px; border-bottom: 1px solid var(--line); }
+.tbl td.num, .tbl th.num { text-align: right; font-family: var(--mono); }
+.tbl tr.hl td { background: var(--accent-soft); }
+
+/* 代码 */
+pre.code { background: var(--code-bg); color: var(--code-text); border-radius: 16px; padding: 36px 44px; font: 26px/1.55 var(--mono); overflow: hidden; white-space: pre; }
+pre.code .k { color: #c792ea; }  /* 关键字 */
+pre.code .s { color: #c3e88d; }  /* 字符串 */
+pre.code .c { color: #7a7a86; font-style: italic; }  /* 注释 */
+pre.code .f { color: #82aaff; }  /* 函数 */
+pre.code .n { color: #f78c6c; }  /* 数字 */
+pre.code .hl { background: rgba(255,255,255,.1); display: inline-block; width: 100%; }
+.code-label { font-size: 22px; color: var(--muted); margin-bottom: 12px; font-family: var(--mono); }
+
+/* 时间线 */
+.timeline { display: flex; position: relative; margin-top: 40px; }
+.timeline::before { content: ""; position: absolute; left: 0; right: 0; top: 18px; height: 4px; background: var(--line); }
+.timeline .ev { flex: 1; position: relative; padding-top: 64px; padding-right: 32px; }
+.timeline .ev::before { content: ""; position: absolute; top: 6px; left: 0; width: 28px; height: 28px; border-radius: 50%; background: var(--bg); border: 5px solid var(--accent); }
+.timeline .ev.done::before { background: var(--accent); }
+.timeline .date { font: 700 26px var(--mono); color: var(--accent); }
+.timeline .what { font-size: 32px; font-weight: 700; margin-top: 10px; }
+.timeline .desc { font-size: 24px; color: var(--muted); margin-top: 8px; line-height: 1.5; }
+
+/* 横向条形图（纯 CSS，--v 取 0–100） */
+.bars { display: flex; flex-direction: column; gap: 22px; margin-top: 16px; }
+.bar { display: grid; grid-template-columns: 320px 1fr 140px; align-items: center; gap: 24px; font-size: 28px; }
+.bar .track { height: 36px; background: var(--surface); border-radius: 6px; overflow: hidden; }
+.bar .fill { height: 100%; width: calc(var(--v) * 1%); background: var(--accent); border-radius: 6px; }
+.bar .fill.alt { background: var(--accent-2); }
+.bar .val { font-family: var(--mono); text-align: right; }
+
+/* 引用 / 结论 */
+.layout-quote { justify-content: center; }
+.layout-quote blockquote { font-size: 64px; line-height: 1.4; font-weight: 700; max-width: 1560px; border-left: 12px solid var(--accent); padding-left: 56px; }
+.layout-quote cite { display: block; margin-top: 48px; padding-left: 68px; font-size: 30px; color: var(--muted); font-style: normal; }
+
+/* 图片 */
+.figure { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; }
+.figure img, .figure svg { max-width: 100%; max-height: 100%; object-fit: contain; }
+.caption { font-size: 24px; color: var(--muted); text-align: center; margin-top: 16px; }
+
+/* 标签、提示框 */
+.tag { display: inline-block; font-size: .7em; font-weight: 700; padding: .15em .6em; border-radius: 999px; background: var(--surface); color: var(--muted); vertical-align: middle; }
+.tag.ok { background: color-mix(in srgb, var(--ok) 15%, transparent); color: var(--ok); }
+.tag.warn { background: color-mix(in srgb, var(--warn) 15%, transparent); color: var(--warn); }
+.tag.bad { background: color-mix(in srgb, var(--bad) 15%, transparent); color: var(--bad); }
+.callout { border-left: 8px solid var(--accent); background: var(--accent-soft); padding: 28px 36px; border-radius: 0 12px 12px 0; font-size: 32px; line-height: 1.5; margin-top: 32px; }
+
+/* 流程步骤 */
+.flow { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 40px; }
+.flow .st { background: var(--surface); border-radius: 20px; padding: 40px 36px; position: relative; }
+.flow .st:not(:last-child)::after { content: "→"; position: absolute; right: -32px; top: 50%; transform: translateY(-50%); font-size: 32px; color: var(--muted); }
+.flow .st .n { font: 800 56px/1 var(--mono); color: var(--accent); margin-bottom: 24px; }
+.flow .st h3 { font-size: 34px; }
+.flow .st p { font-size: 26px; color: var(--muted); line-height: 1.5; }
+
+/* 图文 */
+.media { display: grid; grid-template-columns: 1fr 1fr; gap: 80px; flex: 1; min-height: 0; align-items: center; }
+.media.flip > :first-child { order: 2; }
+.media .pic { height: 100%; max-height: 720px; border-radius: 20px; overflow: hidden; background: var(--surface); display: flex; align-items: center; justify-content: center; }
+.media .pic img { width: 100%; height: 100%; object-fit: cover; }
+.media .pic svg { width: 80%; height: 80%; }
+
+/* 结尾 */
+.layout-end { justify-content: center; align-items: flex-start; }
+.layout-end h1 { font-size: 110px; }
+</style>
+</head>
+<body>
+
+<main class="deck">
+
+<!-- ============================================================
+     示例幻灯片：每页演示一种版式，制作时全部删除后按需复制
+     ============================================================ -->
+
+<section class="slide layout-cover" data-no-number>
+  <div class="eyebrow">HTML Slides</div>
+  <h1>用一个 HTML 文件做演示</h1>
+  <p class="lead">零依赖、可离线、可导出 PDF。这份示例本身就是版式说明书。</p>
+  <div class="meta"><span>作者</span><span>日期</span></div>
+  <aside class="notes">演讲者备注写在 aside.notes 里，放映时按 N 显示。</aside>
+</section>
+
+<section class="slide">
+  <h2>议程</h2>
+  <div class="body">
+    <ol>
+      <li>版式一览：标准页、多栏、流程、图文</li>
+      <li>数据展示：大数字、条形图、表格、时间线</li>
+      <li>代码与收尾：代码页、结论页、结尾页</li>
+    </ol>
+  </div>
+</section>
+
+<section class="slide layout-section" data-no-number>
+  <div class="num">01</div>
+  <h1>版式一览</h1>
+  <p class="lead">每页演示一种版式，标题说明它适合放什么内容</p>
+</section>
+
+<section class="slide">
+  <h2>标准页适合 3–5 条要点，标题直接写结论</h2>
+  <div class="body">
+    <ul>
+      <li class="step">每页只讲<strong>一个观点</strong>，标题就是这个观点</li>
+      <li class="step">要点不超过 5 条，每条不超过两行</li>
+      <li class="step">带 <code>class="step"</code> 的元素按 → 逐条出现</li>
+    </ul>
+    <div class="callout step">提示框：放这一页最想让听众记住的一句话</div>
+  </div>
+</section>
+
+<section class="slide">
+  <h2>两栏适合对比两个选项</h2>
+  <div class="cols">
+    <div class="card">
+      <h3>方案 A <span class="tag ok">推荐</span></h3>
+      <ul><li>优点一</li><li>优点二</li><li>代价</li></ul>
+    </div>
+    <div class="card accent">
+      <h3>方案 B <span class="tag warn">备选</span></h3>
+      <ul><li>优点一</li><li>优点二</li><li>代价</li></ul>
+    </div>
+  </div>
+</section>
+
+<section class="slide">
+  <h2>三栏适合并列的三个概念</h2>
+  <div class="cols three">
+    <div class="card"><h3>简单</h3><p class="small">一个文件，浏览器直接打开，不需要安装任何软件</p></div>
+    <div class="card"><h3>可离线</h3><p class="small">不依赖网络和外部资源，内网环境也能放映</p></div>
+    <div class="card"><h3>可打印</h3><p class="small">按 P 打印，另存为 PDF 发给没来现场的人</p></div>
+  </div>
+</section>
+
+<section class="slide">
+  <h2>流程页展示有先后顺序的步骤</h2>
+  <div class="body center">
+    <div class="flow">
+      <div class="st"><div class="n">1</div><h3>写大纲</h3><p>每页一行，标题写成结论句</p></div>
+      <div class="st"><div class="n">2</div><h3>选版式</h3><p>按内容类型挑最合适的一种</p></div>
+      <div class="st"><div class="n">3</div><h3>填内容</h3><p>控制字数，宁可拆页</p></div>
+      <div class="st"><div class="n">4</div><h3>检查</h3><p>溢出检查加逐页截图</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="slide">
+  <h2>图文页：一边讲解，一边放图</h2>
+  <div class="media">
+    <div>
+      <p class="lead">图片放在 <code>.pic</code> 里会自动裁切填满；加 <code>.flip</code> 可以左右互换。</p>
+      <ul style="margin-top:40px">
+        <li>截图、照片、架构图都适用</li>
+        <li>图示优先用内联 SVG，颜色跟随主题</li>
+      </ul>
+    </div>
+    <div class="pic">
+      <svg viewBox="0 0 400 300" aria-label="示意图">
+        <rect x="20" y="40" width="110" height="70" rx="10" fill="none" stroke="var(--accent)" stroke-width="4"/>
+        <rect x="270" y="40" width="110" height="70" rx="10" fill="none" stroke="var(--accent)" stroke-width="4"/>
+        <rect x="145" y="190" width="110" height="70" rx="10" fill="var(--accent)"/>
+        <path d="M75 110 L180 190 M325 110 L220 190" stroke="var(--muted)" stroke-width="3" fill="none"/>
+        <text x="75" y="82" text-anchor="middle" font-size="22" fill="var(--text)">输入 A</text>
+        <text x="325" y="82" text-anchor="middle" font-size="22" fill="var(--text)">输入 B</text>
+        <text x="200" y="232" text-anchor="middle" font-size="22" fill="var(--bg)">输出</text>
+      </svg>
+    </div>
+  </div>
+</section>
+
+<section class="slide layout-section" data-no-number>
+  <div class="num">02</div>
+  <h1>数据展示</h1>
+  <p class="lead">数字要有口径，图表只保留支撑结论的部分</p>
+</section>
+
+<section class="slide">
+  <h2>大数字页突出 2–4 个关键指标</h2>
+  <div class="body center">
+    <div class="stats">
+      <div class="stat"><div class="value">14<small>种</small></div><div class="label">内置版式</div><div class="desc">覆盖常见演示内容</div></div>
+      <div class="stat"><div class="value">0</div><div class="label">外部依赖</div><div class="desc">不引用任何网络资源</div></div>
+      <div class="stat"><div class="value">1<small>个</small></div><div class="label">文件</div><div class="desc">发送、存档都方便</div></div>
+    </div>
+  </div>
+</section>
+
+<section class="slide">
+  <h2>条形图适合少量类别的数量对比</h2>
+  <div class="body center">
+    <div class="bars">
+      <div class="bar"><span>类别 A</span><div class="track"><div class="fill" style="--v:82"></div></div><span class="val">82</span></div>
+      <div class="bar"><span>类别 B</span><div class="track"><div class="fill" style="--v:61"></div></div><span class="val">61</span></div>
+      <div class="bar"><span>类别 C</span><div class="track"><div class="fill alt" style="--v:38"></div></div><span class="val">38</span></div>
+      <div class="bar"><span>类别 D</span><div class="track"><div class="fill alt" style="--v:20"></div></div><span class="val">20</span></div>
+    </div>
+    <p class="small" style="margin-top:40px">示例数据。--v 取 0–100，对应条形长度百分比。</p>
+  </div>
+</section>
+
+<section class="slide">
+  <h2>表格：HTML 演示的取舍</h2>
+  <div class="body">
+    <table class="tbl">
+      <thead><tr><th>格式</th><th>离线放映</th><th>文本可 diff</th><th>他人直接编辑</th><th>复杂动画</th></tr></thead>
+      <tbody>
+        <tr class="hl"><td>HTML</td><td><span class="tag ok">是</span></td><td><span class="tag ok">是</span></td><td><span class="tag warn">需懂 HTML</span></td><td><span class="tag warn">需写代码</span></td></tr>
+        <tr><td>PPTX</td><td><span class="tag ok">是</span></td><td><span class="tag bad">否</span></td><td><span class="tag ok">是</span></td><td><span class="tag ok">是</span></td></tr>
+        <tr><td>PDF</td><td><span class="tag ok">是</span></td><td><span class="tag bad">否</span></td><td><span class="tag bad">否</span></td><td><span class="tag bad">否</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="slide">
+  <h2>时间线页展示阶段与里程碑</h2>
+  <div class="body center">
+    <div class="timeline">
+      <div class="ev done"><div class="date">Q1</div><div class="what">调研</div><div class="desc">明确问题与目标</div></div>
+      <div class="ev done"><div class="date">Q2</div><div class="what">设计</div><div class="desc">方案评审</div></div>
+      <div class="ev"><div class="date">Q3</div><div class="what">实施</div><div class="desc">分阶段交付</div></div>
+      <div class="ev"><div class="date">Q4</div><div class="what">发布</div><div class="desc">上线与复盘</div></div>
+    </div>
+  </div>
+</section>
+
+<section class="slide layout-section" data-no-number>
+  <div class="num">03</div>
+  <h1>代码与收尾</h1>
+</section>
+
+<section class="slide">
+  <h2>新增一页只需要复制一个 section</h2>
+  <div class="cols w-6-4">
+    <div>
+      <div class="code-label">index.html</div>
+<pre class="code"><span class="c">&lt;!-- 标准页 --&gt;</span>
+&lt;<span class="k">section</span> class=<span class="s">"slide"</span>&gt;
+  &lt;<span class="k">h2</span>&gt;标题写结论&lt;/<span class="k">h2</span>&gt;
+  &lt;<span class="k">div</span> class=<span class="s">"body"</span>&gt;
+    &lt;<span class="k">ul</span>&gt;
+<span class="hl">      &lt;<span class="k">li</span> class=<span class="s">"step"</span>&gt;要点&lt;/<span class="k">li</span>&gt;</span>
+    &lt;/<span class="k">ul</span>&gt;
+  &lt;/<span class="k">div</span>&gt;
+  &lt;<span class="k">aside</span> class=<span class="s">"notes"</span>&gt;备注&lt;/<span class="k">aside</span>&gt;
+&lt;/<span class="k">section</span>&gt;</pre>
+    </div>
+    <div>
+      <ul>
+        <li>代码不超过 14 行</li>
+        <li>用 <code>span.hl</code> 高亮关键行</li>
+        <li>前后对比时放两栏</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="slide layout-quote">
+  <blockquote>结论页：用一句话把整场演示收住，听众往往只记得住这一句。</blockquote>
+  <cite>—— 出处或补充说明</cite>
+</section>
+
+<section class="slide layout-end" data-no-number>
+  <h1>谢谢</h1>
+  <p class="lead" style="margin-top:32px">问答 / 联系方式</p>
+</section>
+
+</main>
+
+<div class="ui-progress"></div>
+<div class="ui-page"></div>
+<div class="ui-warn"></div>
+<div class="ui-notes"></div>
+<div class="ui-help"><div>
+  <kbd>→</kbd><kbd>空格</kbd>下一步　<kbd>←</kbd>上一步<br>
+  <kbd>Home</kbd><kbd>End</kbd>首页 / 末页<br>
+  <kbd>F</kbd>全屏　<kbd>O</kbd>总览　<kbd>N</kbd>备注　<kbd>T</kbd>明暗主题<br>
+  <kbd>P</kbd>打印 / 导出 PDF　<kbd>?</kbd>帮助
+</div></div>
+
+<script>
+(() => {
+  const deck = document.querySelector('.deck');
+  const slides = [...deck.querySelectorAll(':scope > .slide')];
+  const $ = s => document.querySelector(s);
+  const progress = $('.ui-progress'), page = $('.ui-page'), warn = $('.ui-warn'), notes = $('.ui-notes'), help = $('.ui-help');
+  let cur = 0, step = 0;
+
+  const fit = () => {
+    const s = Math.min(innerWidth / 1920, innerHeight / 1080);
+    deck.style.setProperty('--scale', s);
+  };
+
+  const stepsOf = i => [...slides[i].querySelectorAll('.step')];
+
+  const render = () => {
+    slides.forEach((el, i) => el.classList.toggle('active', i === cur));
+    stepsOf(cur).forEach((el, k) => el.classList.toggle('shown', k < step));
+    progress.style.width = ((cur + 1) / slides.length * 100) + '%';
+    page.textContent = slides[cur].hasAttribute('data-no-number') ? '' : (cur + 1) + ' / ' + slides.length;
+    const n = slides[cur].querySelector('.notes');
+    notes.innerHTML = n ? n.innerHTML : '<span style="opacity:.5">（本页无备注）</span>';
+    if (location.hash !== '#' + (cur + 1)) history.replaceState(null, '', '#' + (cur + 1));
+  };
+
+  const go = (i, s = 0) => { cur = Math.max(0, Math.min(slides.length - 1, i)); step = s; render(); };
+  const next = () => step < stepsOf(cur).length ? (step++, render()) : cur < slides.length - 1 && go(cur + 1, 0);
+  const prev = () => step > 0 ? (step--, render()) : cur > 0 && go(cur - 1, stepsOf(cur - 1).length);
+
+  const toggleOverview = () => {
+    document.body.classList.toggle('overview');
+    if (document.body.classList.contains('overview')) slides[cur].scrollIntoView({ block: 'center' });
+  };
+
+  addEventListener('keydown', e => {
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    const k = e.key;
+    if (['ArrowRight', 'ArrowDown', 'PageDown', ' ', 'Enter'].includes(k)) { e.preventDefault(); next(); }
+    else if (['ArrowLeft', 'ArrowUp', 'PageUp', 'Backspace'].includes(k)) { e.preventDefault(); prev(); }
+    else if (k === 'Home') go(0);
+    else if (k === 'End') go(slides.length - 1, stepsOf(slides.length - 1).length);
+    else if (k === 'f' || k === 'F') document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen?.();
+    else if (k === 'o' || k === 'O' || k === 'Escape' && document.body.classList.contains('overview')) toggleOverview();
+    else if (k === 'n' || k === 'N') notes.classList.toggle('open');
+    else if (k === 't' || k === 'T') document.documentElement.dataset.theme = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+    else if (k === 'p' || k === 'P') print();
+    else if (k === '?') help.classList.toggle('open');
+    else if (k === 'Escape') help.classList.remove('open');
+  });
+
+  deck.addEventListener('click', e => {
+    if (!document.body.classList.contains('overview')) return;
+    const s = e.target.closest('.slide');
+    if (s) { go(slides.indexOf(s)); toggleOverview(); }
+  });
+  help.addEventListener('click', () => help.classList.remove('open'));
+
+  let tx = null;
+  addEventListener('touchstart', e => { tx = e.touches[0].clientX; }, { passive: true });
+  addEventListener('touchend', e => {
+    if (tx === null) return;
+    const dx = e.changedTouches[0].clientX - tx;
+    if (Math.abs(dx) > 50) dx < 0 ? next() : prev();
+    tx = null;
+  });
+
+  /* 溢出检查：内容超出 1920×1080 画布的页面会被标红。
+     也可在控制台或无头浏览器里调用 window.deckCheck() 取得结果。 */
+  window.deckCheck = () => {
+    const bad = [];
+    slides.forEach((el, i) => {
+      const saved = [...el.querySelectorAll('.step')].map(s => s.classList.contains('shown'));
+      el.querySelectorAll('.step').forEach(s => s.classList.add('shown'));
+      const over = el.scrollHeight > el.clientHeight + 1 || el.scrollWidth > el.clientWidth + 1;
+      let clipped = over;
+      if (!over) {
+        el.querySelectorAll('pre, table, .card, .figure').forEach(c => {
+          if (c.scrollHeight > c.clientHeight + 1 || c.scrollWidth > c.clientWidth + 1) clipped = true;
+        });
+      }
+      el.querySelectorAll('.step').forEach((s, k) => s.classList.toggle('shown', saved[k]));
+      el.classList.toggle('overflow', clipped);
+      if (clipped) bad.push(i + 1);
+    });
+    warn.style.display = bad.length ? 'block' : 'none';
+    warn.textContent = '内容溢出：第 ' + bad.join('、') + ' 页';
+    if (bad.length) console.warn('[deck] 内容溢出的页面：', bad);
+    return { total: slides.length, overflow: bad };
+  };
+
+  addEventListener('hashchange', () => {
+    const n = parseInt(location.hash.slice(1), 10);
+    if (Number.isFinite(n) && n - 1 !== cur) go(n - 1);
+  });
+  addEventListener('resize', fit);
+  fit();
+  const h = parseInt(location.hash.slice(1), 10);
+  go(Number.isFinite(h) ? h - 1 : 0);
+  (document.fonts ? document.fonts.ready : Promise.resolve()).then(() => window.deckCheck());
+})();
+</script>
+</body>
+</html>
