@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>版式图库</title>
+<!--
+  slides-craft 单文件幻灯片外壳（v4）
+  用法：只在 <div id="deck"> 里增删 <section class="slide dark|light|accent">；不要改“外壳”样式和脚本。
+  外壳保证：固定 1920×1080 画布，等比缩放，上下左右居中；非全屏时四周留边距；F 全屏；打印导出 PDF；
+           页码自动生成；按 C 键（或网址加 ?check）打开页面内置自检：溢出、留白、标题换行、小字。
+  页面结构：eyebrow（章节）+ .title（短标题，≤ 18 字）+ .lede（结论副标题）+ .body（内容，撑满剩余高度）。
+  已知陷阱见 references/html-viewer.md（box-sizing、居中缩放）。
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+/* ===== 外壳：不要改 ===== */
+*,*::before,*::after{box-sizing:border-box}
+html,body{margin:0;height:100%;background:#0d0c0b;overflow:hidden}
+#stage{position:fixed;inset:0;overflow:hidden}
+#deck{position:absolute;left:0;top:0;width:1920px;height:1080px;transform-origin:0 0;overflow:hidden}
+.slide{position:absolute;inset:0;display:none;flex-direction:column;gap:24px;
+       padding:88px 112px 120px;overflow:hidden;
+       font-family:'Noto Sans SC','PingFang SC','Microsoft YaHei',sans-serif;
+       background:var(--bg);color:var(--fg)}
+.slide.active{display:flex}
+.notes{display:none}
+#hint{position:fixed;left:50%;bottom:10px;transform:translateX(-50%);z-index:9;pointer-events:none;
+      color:#8b8073;font:13px/1 'Noto Sans SC',sans-serif;letter-spacing:.05em;opacity:0;transition:opacity .4s}
+#hint.show{opacity:.9}
+#check{position:fixed;left:12px;top:12px;z-index:30;max-width:520px;max-height:82vh;overflow:auto;
+       background:rgba(10,9,8,.92);color:#eee;font:13px/1.55 'Noto Sans SC',sans-serif;
+       padding:12px 14px;border-radius:8px;display:none}
+#check.on{display:block}
+#check b{color:#fff}.ok{color:#7fd6a4}.bad{color:#ff9d80}
+@media print{
+  @page{size:1920px 1080px;margin:0}
+  html,body{height:auto;overflow:visible;background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  #stage{position:static;overflow:visible}
+  #deck{position:static;transform:none!important;width:1920px;height:auto;overflow:visible}
+  .slide{display:flex!important;position:relative;width:1920px;height:1080px;break-after:page;page-break-after:always}
+  #hint,#check{display:none!important}
+}
+
+/* ===== 主题令牌（对比度已验证：文字 ≥ 4.5:1）===== */
+.slide.dark  {--bg:#1b1815;--fg:#f5f0e8;--muted:#b8ada0;--accent:#e0693a;--accent2:#6cc3b8;--card:#26221e;--line:#3a342e;--code:#100e0c}
+.slide.light {--bg:#f5f0e8;--fg:#1b1815;--muted:#5f574e;--accent:#b8481c;--accent2:#1d6f66;--card:#fbf8f2;--line:#ddd3c4;--code:#26221e}
+.slide.accent{--bg:#b8481c;--fg:#fff8f0;--muted:#fff1e8;--accent:#fff8f0;--accent2:#fff1e8;--card:#9c3b15;--line:#d9825f;--code:#1b1815}
+
+/* ===== 组件：字阶 96 / 56 / 32 / 28 / 26 / 24 / 22 ===== */
+.m,.mono,.code{font-family:'JetBrains Mono',ui-monospace,Menlo,Consolas,monospace}
+.hd{display:flex;flex-direction:column;gap:6px}
+.eyebrow{margin:0;font-size:24px;font-weight:500;letter-spacing:.04em;color:var(--accent)}
+.title{margin:0;font-size:56px;font-weight:700;line-height:1.15}
+.lede{margin:4px 0 0;font-size:30px;line-height:1.4;color:var(--muted)}
+.body{flex:1;min-height:0;display:flex;flex-direction:column;gap:24px}   /* 撑满标题以下的空间 */
+.cols{flex:1;min-height:0;display:flex;gap:32px;align-items:stretch}
+.col{flex:1;min-width:0;display:flex;flex-direction:column;gap:16px}
+.col.w2{flex:2}.col.w3{flex:3}
+.col>.card,.col>.code,.col>.tbl.fill{flex:1}          /* 列内的块默认拉伸，避免下方留白 */
+.grid{flex:1;min-height:0;display:grid;gap:24px}
+.g2{grid-template-columns:repeat(2,1fr)}.g3{grid-template-columns:repeat(3,1fr)}.g4{grid-template-columns:repeat(4,1fr)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:24px 28px;
+      display:flex;flex-direction:column;justify-content:center;gap:12px}
+.card.lg h3{font-size:40px}.card.lg .txt,.card.lg ul{font-size:30px}.card.lg .sub{font-size:26px}
+.body.mid{justify-content:center}                      /* 无结论条的轻量页：内容整体垂直居中 */
+.grid.fit,.cols.fit{flex:none}                        /* 不拉伸到底，按内容高度 */
+.slide h3{margin:0;font-size:32px;font-weight:700;line-height:1.2}
+.txt{margin:0;font-size:26px;line-height:1.5}
+.sub{margin:0;font-size:24px;line-height:1.45;color:var(--muted)}
+.tag{margin:0;font-size:22px;font-weight:500;color:var(--accent)}
+.hl{color:var(--accent);font-weight:700}
+.slide ul,.slide ol{margin:0;padding-left:1.2em;font-size:26px;line-height:1.55}
+.slide li+li{margin-top:8px}
+.tbl{width:100%;border-collapse:collapse;font-size:24px}
+.tbl.fill{height:100%}
+.tbl th{padding:12px 16px;text-align:left;font-weight:600;color:var(--accent);border-bottom:2px solid var(--accent)}
+.tbl td{padding:14px 16px;vertical-align:top;line-height:1.4;border-bottom:1px solid var(--line)}
+.tbl tr:last-child td{border-bottom:none}
+.tbl td:first-child{font-weight:600}
+.code{margin:0;background:var(--code);color:#f5f0e8;border-radius:12px;padding:24px 28px;
+      font-size:24px;line-height:1.6;white-space:pre;overflow:hidden}
+.code .k{color:#6cc3b8}.code .c{color:#b8ada0}.code .e{color:#ff9d80}
+.note{display:grid;grid-template-columns:44px 1fr;gap:12px;align-items:start;font-size:26px;line-height:1.45}
+.note i{font-style:normal;font-weight:700;color:var(--accent)}
+.callout{margin-top:auto;border-left:6px solid var(--accent);background:var(--card);
+         border-radius:0 10px 10px 0;padding:16px 24px;font-size:28px;line-height:1.45}
+.flow{display:flex;align-items:stretch;gap:0}
+.flow .node{flex:1;min-width:0}
+.flow .arr{flex:none;width:44px;display:flex;align-items:center;justify-content:center;
+           font-size:32px;color:var(--accent)}
+.kpi{margin:0;font-size:160px;font-weight:700;line-height:1;color:var(--accent)}
+.step{display:grid;grid-template-columns:56px 1.1fr 1.5fr 1.2fr;gap:24px;align-items:baseline;
+      padding:24px 0;border-bottom:1px solid var(--line);font-size:28px;line-height:1.4}
+.step:last-child{border-bottom:none}
+.step .n{font-size:32px;font-weight:700;color:var(--accent)}
+.ft{position:absolute;left:112px;right:112px;bottom:40px;display:flex;justify-content:space-between;
+    font-size:22px;color:var(--muted)}
+.cover{justify-content:center;gap:20px}
+.cover .title{font-size:96px;line-height:1.08}
+.cover .lede{font-size:36px}
+</style>
+</head>
+<body>
+<div id="stage"><div id="deck">
+
+<!-- ===== SLIDES：版式图库，复制需要的页面，替换内容 ===== -->
+<section id="cover" class="slide dark cover active">
+  <p class="eyebrow">版式图库 · 示例内容：HTTP 缓存</p>
+  <h1 class="title">HTTP 缓存</h1>
+  <p class="lede">看完你能判断一个响应能不能缓存、缓存多久、过期后怎么省流量</p>
+  <p class="ft"><span>slides-craft v4 · layouts gallery</span><span class="pg"></span></p>
+  <aside class="notes">封面：短标题 + 一句承诺。</aside>
+</section>
+
+<section id="agenda" class="slide light">
+  <div class="hd">
+    <p class="eyebrow">目录</p>
+    <h2 class="title">四个问题</h2>
+    <p class="lede">每个问题对应一页，听完能回答这四个问题</p>
+  </div>
+  <div class="body mid">
+    <div class="grid g4 fit">
+      <div class="card lg"><p class="kpi" style="font-size:96px">1</p><h3>能不能缓存</h3><p class="txt" style="color:var(--muted)">看状态码、方法、Cache-Control 指令，决定响应是否可存。</p><p class="tag">→ 第 3 页</p></div>
+      <div class="card lg"><p class="kpi" style="font-size:96px">2</p><h3>缓存多久</h3><p class="txt" style="color:var(--muted)">max-age、Expires 与启发式新鲜度的优先级。</p><p class="tag">→ 第 4 页</p></div>
+      <div class="card lg"><p class="kpi" style="font-size:96px">3</p><h3>过期后怎么办</h3><p class="txt" style="color:var(--muted)">带 ETag 条件请求，304 只回头部，不回正文。</p><p class="tag">→ 第 5–6 页</p></div>
+      <div class="card lg"><p class="kpi" style="font-size:96px">4</p><h3>怎么配置</h3><p class="txt" style="color:var(--muted)">静态资源、HTML、接口三类资源各用什么头。</p><p class="tag">→ 第 7–9 页</p></div>
+    </div>
+  </div>
+  <p class="ft"><span>HTTP 缓存</span><span class="pg"></span></p>
+  <aside class="notes">目录页是锚点页，低密度可以。</aside>
+</section>
+
+<section id="table-diagram" class="slide light">
+  <div class="hd">
+    <p class="eyebrow">01 · 能不能缓存</p>
+    <h2 class="title">缓存指令</h2>
+    <p class="lede">no-cache 不是“不缓存”，no-store 才是</p>
+  </div>
+  <div class="body">
+    <div class="cols">
+      <div class="col w3">
+        <table class="tbl fill">
+          <tr><th>指令</th><th>含义</th><th>典型场景</th></tr>
+          <tr><td class="m">max-age=N</td><td>N 秒内视为新鲜，可直接使用</td><td>带指纹的 JS / CSS</td></tr>
+          <tr><td class="m">no-cache</td><td>可存储，但每次使用前必须向源站校验</td><td>HTML 入口页</td></tr>
+          <tr><td class="m">no-store</td><td>不得存储任何副本</td><td>银行、个人隐私页面</td></tr>
+          <tr><td class="m">private</td><td>只允许浏览器缓存，CDN 不得缓存</td><td>带登录态的个人数据</td></tr>
+          <tr><td class="m">public</td><td>共享缓存也可存储</td><td>公开的图片、字体</td></tr>
+          <tr><td class="m">immutable</td><td>新鲜期内刷新也不再校验</td><td>文件名含哈希的资源</td></tr>
+        </table>
+      </div>
+      <div class="col w2">
+        <div class="card lg">
+          <h3>默认可缓存的状态码</h3>
+          <p class="txt"><span class="m hl">200 203 204 206</span><br><span class="m hl">300 301 308 404 405 410 414 501</span></p>
+          <p class="sub">其余状态码需要显式的缓存头才会被存储。</p>
+        </div>
+        <div class="card lg">
+          <h3>方法限制</h3>
+          <p class="txt">通常只有 <span class="m hl">GET</span> 和 <span class="m hl">HEAD</span> 的响应会被缓存；POST 需显式声明且很少被实现。</p>
+        </div>
+      </div>
+    </div>
+    <p class="callout"><b class="hl">配置前先问：</b>响应含个人数据吗？含，就加 <span class="m">private</span>，别让 CDN 存。</p>
+  </div>
+  <p class="ft"><span>HTTP 缓存</span><span class="pg"></span></p>
+  <aside class="notes">表格 + 侧栏 + 结论条。</aside>
+</section>
+
+<section id="flow" class="slide dark">
+  <div class="hd">
+    <p class="eyebrow">02 · 缓存多久</p>
+    <h2 class="title">新鲜度判定</h2>
+    <p class="lede">先看 max-age，再看 Expires，最后才启发式估算</p>
+  </div>
+  <div class="body">
+    <div class="flow" style="flex:1">
+      <div class="card lg node"><p class="tag">① 有 s-maxage？</p><p class="txt">共享缓存（CDN）优先用它，忽略 max-age。</p></div>
+      <div class="arr">→</div>
+      <div class="card lg node"><p class="tag">② 有 max-age？</p><p class="txt">新鲜期 = max-age，忽略 Expires。</p></div>
+      <div class="arr">→</div>
+      <div class="card lg node"><p class="tag">③ 有 Expires？</p><p class="txt">新鲜期 = Expires − Date，依赖时钟。</p></div>
+      <div class="arr">→</div>
+      <div class="card lg node"><p class="tag">④ 都没有</p><p class="txt">启发式：常取 (Date − Last-Modified) × 10%。</p></div>
+    </div>
+    <div class="cols" style="flex:1">
+      <div class="col">
+        <div class="card lg">
+          <h3>推导示例</h3>
+          <p class="txt">Last-Modified 距今 <span class="hl">30 天</span>，无任何缓存头：<br>新鲜期 ≈ 30 × 10% = <span class="hl">3 天</span></p>
+          <p class="sub">10% 是规范建议的常见做法，不是强制值；浏览器实现各异。</p>
+        </div>
+      </div>
+      <div class="col">
+        <div class="card lg">
+          <h3>Age 头</h3>
+          <p class="txt">响应经过 CDN 时会带 <span class="m hl">Age: N</span>，表示它已在缓存里放了 N 秒。<br>剩余新鲜期 = max-age − Age。</p>
+        </div>
+      </div>
+    </div>
+  </div>
+  <p class="ft"><span>HTTP 缓存</span><span class="pg"></span></p>
+  <aside class="notes">流程 + 推导 + 概念。</aside>
+</section>
+
+<section id="code" class="slide light">
+  <div class="hd">
+    <p class="eyebrow">03 · 过期之后</p>
+    <h2 class="title">条件请求</h2>
+    <p class="lede">用 ETag 校验，未变化时只传 304 头部</p>
+  </div>
+  <div class="body">
+    <div class="cols">
+      <div class="col w3">
+<pre class="code" style="flex:1"><span class="c"># 第一次请求</span>
+GET /app.js HTTP/1.1
+
+HTTP/1.1 200 OK
+<span class="k">ETag</span>: "a1b2c3"
+<span class="k">Cache-Control</span>: max-age=60
+
+<span class="c"># 过期后再次请求</span>
+GET /app.js HTTP/1.1
+<span class="k">If-None-Match</span>: "a1b2c3"
+
+HTTP/1.1 <span class="e">304</span> Not Modified
+<span class="k">ETag</span>: "a1b2c3"</pre>
+      </div>
+      <div class="col w2" style="justify-content:space-around">
+        <div class="note"><i>1</i><span>响应带 <span class="m hl">ETag</span>，浏览器连同副本一起保存。</span></div>
+        <div class="note"><i>2</i><span>过期后请求带上 <span class="m hl">If-None-Match</span>。</span></div>
+        <div class="note"><i>3</i><span>源站比对一致，返回 <span class="m hl">304</span>，无正文。</span></div>
+        <div class="note"><i>4</i><span>浏览器继续使用本地副本，并刷新新鲜期。</span></div>
+      </div>
+    </div>
+  </div>
+  <p class="ft"><span>HTTP 缓存</span><span class="pg"></span></p>
+  <aside class="notes">代码 + 编号批注。</aside>
+</section>
+
+<section id="compare" class="slide light">
+  <div class="hd">
+    <p class="eyebrow">03 · 过期之后</p>
+    <h2 class="title">ETag 与 Last-Modified</h2>
+    <p class="lede">优先用 ETag，Last-Modified 作为兜底</p>
+  </div>
+  <div class="body">
+    <div class="cols">
+      <div class="col"><div class="card lg" style="flex:1">
+        <p class="tag">强校验</p><h3>ETag</h3>
+        <ul><li>内容哈希或版本号，字节级精确</li><li>对应请求头 <span class="m">If-None-Match</span></li><li>计算有成本，多台源站要保证一致</li><li>适合：需要精确判定“是否真的变了”的资源</li></ul>
+      </div></div>
+      <div class="col"><div class="card lg" style="flex:1">
+        <p class="tag">弱校验</p><h3>Last-Modified</h3>
+        <ul><li>时间戳，精度只到秒</li><li>对应请求头 <span class="m">If-Modified-Since</span></li><li>内容回滚或同秒多次修改会误判</li><li>适合：静态文件，或没有 ETag 的老旧源站</li></ul>
+      </div></div>
+    </div>
+    <p class="callout"><b class="hl">所以：</b>两者都发时，服务端按 If-None-Match 优先判断。</p>
+  </div>
+  <p class="ft"><span>HTTP 缓存</span><span class="pg"></span></p>
+  <aside class="notes">左右对比。</aside>
+</section>
+
+<section id="bignum" class="slide accent">
+  <div class="hd">
+    <p class="eyebrow">04 · 收益</p>
+    <h2 class="title">一次 304 省多少</h2>
+    <p class="lede">头部约几百字节，正文可能是几百 KB</p>
+  </div>
+  <div class="body">
+    <div class="cols" style="align-items:center">
+      <div class="col" style="align-items:center;justify-content:center">
+        <p class="kpi">≈99%</p>
+        <p class="txt" style="text-align:center">300 KB 脚本，304 后只传头部</p>
+      </div>
+      <div class="col w2">
+        <div class="card"><h3>推导</h3><p class="txt">1 − 400 / (300 × 1024 + 400) ≈ <b>99.87%</b><br>数字为示意，取整后写作“约 99%”。</p></div>
+        <div class="card"><h3>不省的部分</h3><p class="txt">仍有一次往返（RTT）。max-age 内直接命中则连这次往返也省掉。</p></div>
+        <div class="card"><h3>怎么验证</h3><p class="txt m" style="font-size:22px">curl -sI -H 'If-None-Match: "a1b2c3"' https://example.com/app.js</p><p class="sub">应返回 304 Not Modified，且没有正文。</p></div>
+      </div>
+    </div>
+  </div>
+  <p class="ft"><span>HTTP 缓存</span><span class="pg"></span></p>
+  <aside class="notes">大数字页：锚点。</aside>
+</section>
+
+<section id="steps" class="slide light">
+  <div class="hd">
+    <p class="eyebrow">05 · 怎么配置</p>
+    <h2 class="title">三类资源</h2>
+    <p class="lede">按“文件名是否带哈希”和“是否个人数据”分类配置</p>
+  </div>
+  <div class="body">
+    <div>
+      <div class="step" style="border-bottom:2px solid var(--accent);color:var(--accent);font-weight:600"><span></span><span>资源</span><span>响应头</span><span>原因</span></div>
+      <div class="step"><span class="n">1</span><b>带哈希的静态文件</b><span class="m">max-age=31536000, immutable</span><span>内容变则文件名变，可放心缓存一年</span></div>
+      <div class="step"><span class="n">2</span><b>HTML 入口页</b><span class="m">no-cache</span><span>要每次校验，才能拿到指向新文件名的页面</span></div>
+      <div class="step"><span class="n">3</span><b>个人数据接口</b><span class="m">private, no-store</span><span>防止共享缓存和磁盘残留他人数据</span></div>
+    </div>
+<pre class="code" style="font-size:24px; padding:20px 28px"><span class="c"># nginx 示例</span>
+<span class="k">location</span> ~* \.(js|css)$ { add_header Cache-Control "public, max-age=31536000, immutable"; }
+<span class="k">location</span> = /index.html  { add_header Cache-Control "no-cache"; }</pre>
+    <p class="callout"><b class="hl">所以：</b>先改文件名，再谈缓存时间；HTML 永远不要设长 max-age。</p>
+  </div>
+  <p class="ft"><span>HTTP 缓存</span><span class="pg"></span></p>
+  <aside class="notes">步骤表 / 配置表。</aside>
+</section>
+
+<section id="cards" class="slide dark">
+  <div class="hd">
+    <p class="eyebrow">06 · 常见坑</p>
+    <h2 class="title">六个坑</h2>
+    <p class="lede">多数缓存事故来自这六种误配</p>
+  </div>
+  <div class="body">
+    <div class="grid g3" style="grid-template-rows:1fr 1fr">
+      <div class="card lg"><p class="tag">坑 1</p><h3>HTML 设长 max-age</h3><p class="sub">发布后用户长时间看到旧页面，只能等过期。</p></div>
+      <div class="card lg"><p class="tag">坑 2</p><h3>把 no-cache 当禁用</h3><p class="sub">它仍会存储；敏感内容要用 no-store。</p></div>
+      <div class="card lg"><p class="tag">坑 3</p><h3>忘记 Vary</h3><p class="sub">按 Accept-Encoding 或语言变化的响应，缓存会串内容。</p></div>
+      <div class="card lg"><p class="tag">坑 4</p><h3>多源站 ETag 不一致</h3><p class="sub">负载均衡后校验总失败，304 变 200。</p></div>
+      <div class="card lg"><p class="tag">坑 5</p><h3>依赖客户端时钟</h3><p class="sub">Expires 与本机时间比较，时钟错乱就失效。</p></div>
+      <div class="card lg"><p class="tag">坑 6</p><h3>Cookie 拖垮 CDN</h3><p class="sub">带 Set-Cookie 的响应常不被共享缓存存储。</p></div>
+    </div>
+  </div>
+  <p class="ft"><span>HTTP 缓存</span><span class="pg"></span></p>
+  <aside class="notes">卡片网格：2×3。</aside>
+</section>
+
+<section id="summary" class="slide light">
+  <div class="hd">
+    <p class="eyebrow">总结</p>
+    <h2 class="title">带走四句话</h2>
+    <p class="lede">对应开头的四个问题</p>
+  </div>
+  <div class="body mid">
+    <div class="cols fit">
+      <div class="col"><div class="card lg" ><p class="tag">能不能缓存</p><h3>看指令</h3><p class="sub">no-store 禁存，private 禁共享。</p><p class="txt">禁止存储用 <span class="m hl">no-store</span>，其余看指令与状态码。</p></div></div>
+      <div class="col"><div class="card lg" ><p class="tag">缓存多久</p><h3>看优先级</h3><p class="sub">剩余新鲜期 = max-age − Age。</p><p class="txt"><span class="m hl">s-maxage</span> → <span class="m hl">max-age</span> → Expires → 启发式。</p></div></div>
+      <div class="col"><div class="card lg" ><p class="tag">过期后</p><h3>做校验</h3><p class="sub">If-None-Match 对 ETag，304 无正文。</p><p class="txt">ETag + <span class="m hl">304</span>，只传头部。</p></div></div>
+      <div class="col"><div class="card lg" ><p class="tag">怎么配</p><h3>分三类</h3><p class="sub">哈希文件、HTML、个人数据接口。</p><p class="txt">哈希文件长缓存，HTML 用 <span class="m hl">no-cache</span>。</p></div></div>
+    </div>
+  </div>
+  <p class="ft"><span>HTTP 缓存</span><span class="pg"></span></p>
+  <aside class="notes">总结页与目录一一对应。</aside>
+</section>
+
+<section id="end" class="slide dark cover">
+  <p class="eyebrow">谢谢</p>
+  <h2 class="title">提问与讨论</h2>
+  <p class="lede">参考：RFC 9111 HTTP Caching；MDN 的 HTTP caching 文档</p>
+  <p class="ft"><span>slides-craft v4</span><span class="pg"></span></p>
+  <aside class="notes">结束页：列出参考资料，留出提问。</aside>
+</section>
+
+<!-- ===== SLIDES 结束 ===== -->
+
+</div></div>
+<p id="hint">← / → 翻页 · F 全屏 · C 自检 · 点击左侧上一页，点击其余位置下一页</p>
+<div id="check"></div>
+<script>
+/* ===== 外壳脚本：不要改 ===== */
+(function () {
+  var W0 = 1920, H0 = 1080;
+  var deck = document.getElementById('deck');
+  var hint = document.getElementById('hint');
+  var panel = document.getElementById('check');
+  var slides = [].slice.call(deck.querySelectorAll('.slide'));
+  var cur = 0, hintTimer = null;
+
+  function isFull() { return !!(document.fullscreenElement || document.webkitFullscreenElement); }
+
+  // 等比缩放 + 居中：transform-origin 为左上角，再平移到窗口中心。
+  // 非全屏时四周留边距（较小边的 2%，限制在 8–24px），全屏时不留。
+  function fit() {
+    var vw = window.innerWidth, vh = window.innerHeight;
+    var m = isFull() ? 0 : Math.max(8, Math.min(24, Math.round(Math.min(vw, vh) * 0.02)));
+    var s = Math.min((vw - 2 * m) / W0, (vh - 2 * m) / H0);
+    var x = (vw - W0 * s) / 2, y = (vh - H0 * s) / 2;
+    deck.style.transform = 'translate(' + x + 'px,' + y + 'px) scale(' + s + ')';
+  }
+
+  // 页码自动生成
+  slides.forEach(function (s, i) {
+    var pg = s.querySelector('.pg');
+    if (pg) pg.textContent = (i + 1) + ' / ' + slides.length;
+  });
+
+  function show(i, keepHash) {
+    cur = Math.max(0, Math.min(slides.length - 1, i));
+    slides.forEach(function (s, k) { s.classList.toggle('active', k === cur); });
+    if (!keepHash && history.replaceState) history.replaceState(null, '', location.pathname + location.search + '#' + (cur + 1));
+  }
+
+  function flashHint() {
+    hint.classList.add('show');
+    clearTimeout(hintTimer);
+    hintTimer = setTimeout(function () { hint.classList.remove('show'); }, 2500);
+  }
+
+  function toggleFull() {
+    var d = document, el = d.documentElement;
+    if (isFull()) { (d.exitFullscreen || d.webkitExitFullscreen).call(d); }
+    else { (el.requestFullscreen || el.webkitRequestFullscreen).call(el); }
+  }
+
+  // ---- 页面内置自检：不需要任何外部工具，在浏览器里就能跑 ----
+  // 用布局像素（offset*），不受缩放影响；逐页临时显示后量取。
+  function slidesCheck() {
+    var out = [];
+    slides.forEach(function (s, i) {
+      var prev = s.style.display; s.style.display = 'flex';
+      var cs = getComputedStyle(s);
+      var padT = parseFloat(cs.paddingTop) || 0, padB = parseFloat(cs.paddingBottom) || 0;
+      var limit = s.clientHeight - padB, maxB = 0, worst = '';
+      [].forEach.call(s.children, function (c) {
+        var ccs = getComputedStyle(c);
+        if (ccs.position === 'absolute' || ccs.display === 'none') return;
+        var b = c.offsetTop + c.offsetHeight;
+        if (b > maxB) { maxB = b; worst = c.tagName.toLowerCase() + (c.className ? '.' + String(c.className).split(' ')[0] : ''); }
+      });
+      var issues = [];
+      var isCover = s.classList.contains('cover') || /cover|title|thanks|end|closing|wrap/i.test(s.id);
+      if (s.clientHeight !== 1080) issues.push('页面高度 ' + s.clientHeight + '≠1080（检查 box-sizing）');
+      if (maxB > limit + 1) issues.push('内容越过底部安全区 ' + Math.round(maxB - limit) + 'px（' + worst + '）：拆页或删次要信息');
+      if (s.scrollHeight > s.clientHeight + 1) issues.push('内容被裁切');
+      if (s.scrollWidth > s.clientWidth + 1) issues.push('横向溢出');
+      // 填充率按“最后一段文字的底边”计算（不是容器底边，容器会被拉伸撑满）
+      var sr = s.getBoundingClientRect(), sc = sr.width / W0 || 1, textB = 0;
+      [].forEach.call(s.querySelectorAll('*'), function (e) {
+        if (e.closest('.notes') || e.closest('.ft')) return;
+        var has = [].some.call(e.childNodes, function (n) { return n.nodeType === 3 && n.textContent.trim(); });
+        if (has) textB = Math.max(textB, (e.getBoundingClientRect().bottom - sr.top) / sc);
+      });
+      var fill = (textB - padT) / (limit - padT);
+      if (!isCover && fill < 0.6) issues.push('内容只占可用高度的 ' + Math.round(fill * 100) + '%，下方大片空白：补证据，或让主体区拉伸');
+      var t = s.querySelector('.title');
+      if (t && !isCover) {
+        var tcs = getComputedStyle(t), lh = parseFloat(tcs.lineHeight) || parseFloat(tcs.fontSize) * 1.15;
+        if (t.offsetHeight > lh * 1.5) issues.push('标题折成 ' + Math.round(t.offsetHeight / lh) + ' 行：改成短标题 + 副标题');
+      }
+      var l = s.querySelector('.lede');
+      if (l && !isCover) {
+        var lcs = getComputedStyle(l), llh = parseFloat(lcs.lineHeight) || parseFloat(lcs.fontSize) * 1.4;
+        if (l.offsetHeight > llh * 1.5) issues.push('副标题折成 ' + Math.round(l.offsetHeight / llh) + ' 行：压缩到一行');
+      }
+      var sparse = 0;
+      [].forEach.call(s.querySelectorAll('.card'), function (c) {
+        var cr = c.getBoundingClientRect(), bot = 0;
+        [].forEach.call(c.querySelectorAll('*'), function (e) { bot = Math.max(bot, e.getBoundingClientRect().bottom); });
+        var cc = getComputedStyle(c), inner = cr.height - (parseFloat(cc.paddingTop) + parseFloat(cc.paddingBottom)) * sc;
+        if (inner > 200 * sc && (cr.bottom - parseFloat(cc.paddingBottom) * sc - bot) / inner > 0.45 && (bot - cr.top) > 0) {
+          if (cc.justifyContent !== 'center') sparse++; else if ((cr.height - (bot - cr.top)) / cr.height > 0.5) sparse++;
+        }
+      });
+      if (sparse) issues.push(sparse + ' 张卡片空了一半以上：加 .lg 放大字、加 .fit 不拉伸，或补内容');
+      var small = 0;
+      [].forEach.call(s.querySelectorAll('*'), function (e) {
+        if (e.closest && (e.closest('svg') || e.closest('.notes'))) return;
+        var has = [].some.call(e.childNodes, function (n) { return n.nodeType === 3 && n.textContent.trim(); });
+        if (has && parseFloat(getComputedStyle(e).fontSize) < 21.5) small++;
+      });
+      if (small) issues.push(small + ' 处文字小于 22px');
+      s.style.display = prev;
+      out.push({ n: i + 1, id: s.id, fill: Math.round(fill * 100), issues: issues });
+    });
+    return out;
+  }
+  window.slidesCheck = slidesCheck;
+
+  function showCheck() {
+    var res = slidesCheck(), bad = res.filter(function (r) { return r.issues.length; });
+    var h = '<b>自检：' + res.length + ' 页，' + (bad.length ? '<span class="bad">' + bad.length + ' 页有问题</span>' : '<span class="ok">全部通过</span>') + '</b>（C 关闭）<br>';
+    res.forEach(function (r) {
+      h += '第 ' + r.n + ' 页 ' + (r.id ? '[' + r.id + '] ' : '') + '填充 ' + r.fill + '% ' +
+           (r.issues.length ? '<br><span class="bad">· ' + r.issues.join('<br>· ') + '</span>' : '<span class="ok">✓</span>') + '<br>';
+    });
+    panel.innerHTML = h; panel.classList.add('on');
+    if (window.console && console.table) console.table(res.map(function (r) { return { 页: r.n, id: r.id, 填充: r.fill + '%', 问题: r.issues.join('；') }; }));
+  }
+  function toggleCheck() { if (panel.classList.contains('on')) panel.classList.remove('on'); else showCheck(); }
+
+  window.addEventListener('resize', fit);
+  document.addEventListener('fullscreenchange', fit);
+  document.addEventListener('webkitfullscreenchange', fit);
+  window.addEventListener('mousemove', flashHint);
+  window.addEventListener('hashchange', function () {
+    var n = parseInt(location.hash.slice(1), 10);
+    if (n) show(n - 1, true);
+  });
+  window.addEventListener('keydown', function (e) {
+    var k = e.key;
+    if (['ArrowRight', 'ArrowDown', ' ', 'PageDown', 'Enter'].indexOf(k) >= 0) { e.preventDefault(); show(cur + 1); }
+    else if (['ArrowLeft', 'ArrowUp', 'PageUp', 'Backspace'].indexOf(k) >= 0) { e.preventDefault(); show(cur - 1); }
+    else if (k === 'Home') { show(0); }
+    else if (k === 'End') { show(slides.length - 1); }
+    else if (k === 'f' || k === 'F') { toggleFull(); }
+    else if (k === 'c' || k === 'C') { toggleCheck(); }
+    flashHint();
+  });
+  document.getElementById('stage').addEventListener('click', function (e) {
+    if (e.target.closest && e.target.closest('a')) return;
+    show(e.clientX < window.innerWidth * 0.33 ? cur - 1 : cur + 1);
+  });
+  var tx = null;
+  window.addEventListener('touchstart', function (e) { tx = e.touches[0].clientX; }, { passive: true });
+  window.addEventListener('touchend', function (e) {
+    if (tx === null) return;
+    var dx = e.changedTouches[0].clientX - tx; tx = null;
+    if (Math.abs(dx) > 50) show(cur + (dx < 0 ? 1 : -1));
+  }, { passive: true });
+
+  fit();
+  var n0 = parseInt(location.hash.slice(1), 10);
+  show(n0 ? n0 - 1 : 0, true);
+  flashHint();
+  if (/[?&]check\b/.test(location.search)) showCheck();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>演示标题</title>
+<!--
+  slides-craft 单文件幻灯片外壳（v4）
+  用法：只在 <div id="deck"> 里增删 <section class="slide dark|light|accent">；不要改“外壳”样式和脚本。
+  外壳保证：固定 1920×1080 画布，等比缩放，上下左右居中；非全屏时四周留边距；F 全屏；打印导出 PDF；
+           页码自动生成；按 C 键（或网址加 ?check）打开页面内置自检：溢出、留白、标题换行、小字。
+  页面结构：eyebrow（章节）+ .title（短标题，≤ 18 字）+ .lede（结论副标题）+ .body（内容，撑满剩余高度）。
+  已知陷阱见 references/html-viewer.md（box-sizing、居中缩放）。
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+/* ===== 外壳：不要改 ===== */
+*,*::before,*::after{box-sizing:border-box}
+html,body{margin:0;height:100%;background:#0d0c0b;overflow:hidden}
+#stage{position:fixed;inset:0;overflow:hidden}
+#deck{position:absolute;left:0;top:0;width:1920px;height:1080px;transform-origin:0 0;overflow:hidden}
+.slide{position:absolute;inset:0;display:none;flex-direction:column;gap:24px;
+       padding:88px 112px 120px;overflow:hidden;
+       font-family:'Noto Sans SC','PingFang SC','Microsoft YaHei',sans-serif;
+       background:var(--bg);color:var(--fg)}
+.slide.active{display:flex}
+.notes{display:none}
+#hint{position:fixed;left:50%;bottom:10px;transform:translateX(-50%);z-index:9;pointer-events:none;
+      color:#8b8073;font:13px/1 'Noto Sans SC',sans-serif;letter-spacing:.05em;opacity:0;transition:opacity .4s}
+#hint.show{opacity:.9}
+#check{position:fixed;left:12px;top:12px;z-index:30;max-width:520px;max-height:82vh;overflow:auto;
+       background:rgba(10,9,8,.92);color:#eee;font:13px/1.55 'Noto Sans SC',sans-serif;
+       padding:12px 14px;border-radius:8px;display:none}
+#check.on{display:block}
+#check b{color:#fff}.ok{color:#7fd6a4}.bad{color:#ff9d80}
+@media print{
+  @page{size:1920px 1080px;margin:0}
+  html,body{height:auto;overflow:visible;background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  #stage{position:static;overflow:visible}
+  #deck{position:static;transform:none!important;width:1920px;height:auto;overflow:visible}
+  .slide{display:flex!important;position:relative;width:1920px;height:1080px;break-after:page;page-break-after:always}
+  #hint,#check{display:none!important}
+}
+
+/* ===== 主题令牌（对比度已验证：文字 ≥ 4.5:1）===== */
+.slide.dark  {--bg:#1b1815;--fg:#f5f0e8;--muted:#b8ada0;--accent:#e0693a;--accent2:#6cc3b8;--card:#26221e;--line:#3a342e;--code:#100e0c}
+.slide.light {--bg:#f5f0e8;--fg:#1b1815;--muted:#5f574e;--accent:#b8481c;--accent2:#1d6f66;--card:#fbf8f2;--line:#ddd3c4;--code:#26221e}
+.slide.accent{--bg:#b8481c;--fg:#fff8f0;--muted:#fff1e8;--accent:#fff8f0;--accent2:#fff1e8;--card:#9c3b15;--line:#d9825f;--code:#1b1815}
+
+/* ===== 组件：字阶 96 / 56 / 32 / 28 / 26 / 24 / 22 ===== */
+.m,.mono,.code{font-family:'JetBrains Mono',ui-monospace,Menlo,Consolas,monospace}
+.hd{display:flex;flex-direction:column;gap:6px}
+.eyebrow{margin:0;font-size:24px;font-weight:500;letter-spacing:.04em;color:var(--accent)}
+.title{margin:0;font-size:56px;font-weight:700;line-height:1.15}
+.lede{margin:4px 0 0;font-size:30px;line-height:1.4;color:var(--muted)}
+.body{flex:1;min-height:0;display:flex;flex-direction:column;gap:24px}   /* 撑满标题以下的空间 */
+.cols{flex:1;min-height:0;display:flex;gap:32px;align-items:stretch}
+.col{flex:1;min-width:0;display:flex;flex-direction:column;gap:16px}
+.col.w2{flex:2}.col.w3{flex:3}
+.col>.card,.col>.code,.col>.tbl.fill{flex:1}          /* 列内的块默认拉伸，避免下方留白 */
+.grid{flex:1;min-height:0;display:grid;gap:24px}
+.g2{grid-template-columns:repeat(2,1fr)}.g3{grid-template-columns:repeat(3,1fr)}.g4{grid-template-columns:repeat(4,1fr)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:24px 28px;
+      display:flex;flex-direction:column;justify-content:center;gap:12px}
+.card.lg h3{font-size:40px}.card.lg .txt,.card.lg ul{font-size:30px}.card.lg .sub{font-size:26px}
+.body.mid{justify-content:center}                      /* 无结论条的轻量页：内容整体垂直居中 */
+.grid.fit,.cols.fit{flex:none}                        /* 不拉伸到底，按内容高度 */
+.slide h3{margin:0;font-size:32px;font-weight:700;line-height:1.2}
+.txt{margin:0;font-size:26px;line-height:1.5}
+.sub{margin:0;font-size:24px;line-height:1.45;color:var(--muted)}
+.tag{margin:0;font-size:22px;font-weight:500;color:var(--accent)}
+.hl{color:var(--accent);font-weight:700}
+.slide ul,.slide ol{margin:0;padding-left:1.2em;font-size:26px;line-height:1.55}
+.slide li+li{margin-top:8px}
+.tbl{width:100%;border-collapse:collapse;font-size:24px}
+.tbl.fill{height:100%}
+.tbl th{padding:12px 16px;text-align:left;font-weight:600;color:var(--accent);border-bottom:2px solid var(--accent)}
+.tbl td{padding:14px 16px;vertical-align:top;line-height:1.4;border-bottom:1px solid var(--line)}
+.tbl tr:last-child td{border-bottom:none}
+.tbl td:first-child{font-weight:600}
+.code{margin:0;background:var(--code);color:#f5f0e8;border-radius:12px;padding:24px 28px;
+      font-size:24px;line-height:1.6;white-space:pre;overflow:hidden}
+.code .k{color:#6cc3b8}.code .c{color:#b8ada0}.code .e{color:#ff9d80}
+.note{display:grid;grid-template-columns:44px 1fr;gap:12px;align-items:start;font-size:26px;line-height:1.45}
+.note i{font-style:normal;font-weight:700;color:var(--accent)}
+.callout{margin-top:auto;border-left:6px solid var(--accent);background:var(--card);
+         border-radius:0 10px 10px 0;padding:16px 24px;font-size:28px;line-height:1.45}
+.flow{display:flex;align-items:stretch;gap:0}
+.flow .node{flex:1;min-width:0}
+.flow .arr{flex:none;width:44px;display:flex;align-items:center;justify-content:center;
+           font-size:32px;color:var(--accent)}
+.kpi{margin:0;font-size:160px;font-weight:700;line-height:1;color:var(--accent)}
+.step{display:grid;grid-template-columns:56px 1.1fr 1.5fr 1.2fr;gap:24px;align-items:baseline;
+      padding:24px 0;border-bottom:1px solid var(--line);font-size:28px;line-height:1.4}
+.step:last-child{border-bottom:none}
+.step .n{font-size:32px;font-weight:700;color:var(--accent)}
+.ft{position:absolute;left:112px;right:112px;bottom:40px;display:flex;justify-content:space-between;
+    font-size:22px;color:var(--muted)}
+.cover{justify-content:center;gap:20px}
+.cover .title{font-size:96px;line-height:1.08}
+.cover .lede{font-size:36px}
+</style>
+</head>
+<body>
+<div id="stage"><div id="deck">
+
+<!-- ===== SLIDES：在这里增删页面。每页一个 <section class="slide dark|light|accent">，第一页再加 active ===== -->
+<section id="cover" class="slide dark cover active">
+  <p class="eyebrow">主题标签</p>
+  <h1 class="title">演示标题</h1>
+  <p class="lede">一句话说明这次讲什么、听完能带走什么</p>
+  <p class="ft"><span>作者 · 日期</span><span class="pg"></span></p>
+  <aside class="notes">封面备注。</aside>
+</section>
+
+<section id="content" class="slide light">
+  <div class="hd">
+    <p class="eyebrow">01 · 章节名</p>
+    <h2 class="title">短标题写主题</h2>
+    <p class="lede">副标题写这一页的结论，一句话，不超过 40 字</p>
+  </div>
+  <div class="body">
+    <div class="cols">
+      <div class="col"><div class="card"><h3>证据块 A</h3><p class="txt">表格、代码、图、对比栏任选。</p></div></div>
+      <div class="col"><div class="card"><h3>证据块 B</h3><p class="txt">两三个块并排，撑满可用高度。</p></div></div>
+    </div>
+    <p class="callout"><b class="hl">所以：</b>结论条固定贴底，只在有新信息时使用。</p>
+  </div>
+  <p class="ft"><span>演示标题</span><span class="pg"></span></p>
+  <aside class="notes">内容页备注。</aside>
+</section>
+<!-- ===== SLIDES 结束 ===== -->
+
+</div></div>
+<p id="hint">← / → 翻页 · F 全屏 · C 自检 · 点击左侧上一页，点击其余位置下一页</p>
+<div id="check"></div>
+<script>
+/* ===== 外壳脚本：不要改 ===== */
+(function () {
+  var W0 = 1920, H0 = 1080;
+  var deck = document.getElementById('deck');
+  var hint = document.getElementById('hint');
+  var panel = document.getElementById('check');
+  var slides = [].slice.call(deck.querySelectorAll('.slide'));
+  var cur = 0, hintTimer = null;
+
+  function isFull() { return !!(document.fullscreenElement || document.webkitFullscreenElement); }
+
+  // 等比缩放 + 居中：transform-origin 为左上角，再平移到窗口中心。
+  // 非全屏时四周留边距（较小边的 2%，限制在 8–24px），全屏时不留。
+  function fit() {
+    var vw = window.innerWidth, vh = window.innerHeight;
+    var m = isFull() ? 0 : Math.max(8, Math.min(24, Math.round(Math.min(vw, vh) * 0.02)));
+    var s = Math.min((vw - 2 * m) / W0, (vh - 2 * m) / H0);
+    var x = (vw - W0 * s) / 2, y = (vh - H0 * s) / 2;
+    deck.style.transform = 'translate(' + x + 'px,' + y + 'px) scale(' + s + ')';
+  }
+
+  // 页码自动生成
+  slides.forEach(function (s, i) {
+    var pg = s.querySelector('.pg');
+    if (pg) pg.textContent = (i + 1) + ' / ' + slides.length;
+  });
+
+  function show(i, keepHash) {
+    cur = Math.max(0, Math.min(slides.length - 1, i));
+    slides.forEach(function (s, k) { s.classList.toggle('active', k === cur); });
+    if (!keepHash && history.replaceState) history.replaceState(null, '', location.pathname + location.search + '#' + (cur + 1));
+  }
+
+  function flashHint() {
+    hint.classList.add('show');
+    clearTimeout(hintTimer);
+    hintTimer = setTimeout(function () { hint.classList.remove('show'); }, 2500);
+  }
+
+  function toggleFull() {
+    var d = document, el = d.documentElement;
+    if (isFull()) { (d.exitFullscreen || d.webkitExitFullscreen).call(d); }
+    else { (el.requestFullscreen || el.webkitRequestFullscreen).call(el); }
+  }
+
+  // ---- 页面内置自检：不需要任何外部工具，在浏览器里就能跑 ----
+  // 用布局像素（offset*），不受缩放影响；逐页临时显示后量取。
+  function slidesCheck() {
+    var out = [];
+    slides.forEach(function (s, i) {
+      var prev = s.style.display; s.style.display = 'flex';
+      var cs = getComputedStyle(s);
+      var padT = parseFloat(cs.paddingTop) || 0, padB = parseFloat(cs.paddingBottom) || 0;
+      var limit = s.clientHeight - padB, maxB = 0, worst = '';
+      [].forEach.call(s.children, function (c) {
+        var ccs = getComputedStyle(c);
+        if (ccs.position === 'absolute' || ccs.display === 'none') return;
+        var b = c.offsetTop + c.offsetHeight;
+        if (b > maxB) { maxB = b; worst = c.tagName.toLowerCase() + (c.className ? '.' + String(c.className).split(' ')[0] : ''); }
+      });
+      var issues = [];
+      var isCover = s.classList.contains('cover') || /cover|title|thanks|end|closing|wrap/i.test(s.id);
+      if (s.clientHeight !== 1080) issues.push('页面高度 ' + s.clientHeight + '≠1080（检查 box-sizing）');
+      if (maxB > limit + 1) issues.push('内容越过底部安全区 ' + Math.round(maxB - limit) + 'px（' + worst + '）：拆页或删次要信息');
+      if (s.scrollHeight > s.clientHeight + 1) issues.push('内容被裁切');
+      if (s.scrollWidth > s.clientWidth + 1) issues.push('横向溢出');
+      // 填充率按“最后一段文字的底边”计算（不是容器底边，容器会被拉伸撑满）
+      var sr = s.getBoundingClientRect(), sc = sr.width / W0 || 1, textB = 0;
+      [].forEach.call(s.querySelectorAll('*'), function (e) {
+        if (e.closest('.notes') || e.closest('.ft')) return;
+        var has = [].some.call(e.childNodes, function (n) { return n.nodeType === 3 && n.textContent.trim(); });
+        if (has) textB = Math.max(textB, (e.getBoundingClientRect().bottom - sr.top) / sc);
+      });
+      var fill = (textB - padT) / (limit - padT);
+      if (!isCover && fill < 0.6) issues.push('内容只占可用高度的 ' + Math.round(fill * 100) + '%，下方大片空白：补证据，或让主体区拉伸');
+      var t = s.querySelector('.title');
+      if (t && !isCover) {
+        var tcs = getComputedStyle(t), lh = parseFloat(tcs.lineHeight) || parseFloat(tcs.fontSize) * 1.15;
+        if (t.offsetHeight > lh * 1.5) issues.push('标题折成 ' + Math.round(t.offsetHeight / lh) + ' 行：改成短标题 + 副标题');
+      }
+      var l = s.querySelector('.lede');
+      if (l && !isCover) {
+        var lcs = getComputedStyle(l), llh = parseFloat(lcs.lineHeight) || parseFloat(lcs.fontSize) * 1.4;
+        if (l.offsetHeight > llh * 1.5) issues.push('副标题折成 ' + Math.round(l.offsetHeight / llh) + ' 行：压缩到一行');
+      }
+      var sparse = 0;
+      [].forEach.call(s.querySelectorAll('.card'), function (c) {
+        var cr = c.getBoundingClientRect(), bot = 0;
+        [].forEach.call(c.querySelectorAll('*'), function (e) { bot = Math.max(bot, e.getBoundingClientRect().bottom); });
+        var cc = getComputedStyle(c), inner = cr.height - (parseFloat(cc.paddingTop) + parseFloat(cc.paddingBottom)) * sc;
+        if (inner > 200 * sc && (cr.bottom - parseFloat(cc.paddingBottom) * sc - bot) / inner > 0.45 && (bot - cr.top) > 0) {
+          if (cc.justifyContent !== 'center') sparse++; else if ((cr.height - (bot - cr.top)) / cr.height > 0.5) sparse++;
+        }
+      });
+      if (sparse) issues.push(sparse + ' 张卡片空了一半以上：加 .lg 放大字、加 .fit 不拉伸，或补内容');
+      var small = 0;
+      [].forEach.call(s.querySelectorAll('*'), function (e) {
+        if (e.closest && (e.closest('svg') || e.closest('.notes'))) return;
+        var has = [].some.call(e.childNodes, function (n) { return n.nodeType === 3 && n.textContent.trim(); });
+        if (has && parseFloat(getComputedStyle(e).fontSize) < 21.5) small++;
+      });
+      if (small) issues.push(small + ' 处文字小于 22px');
+      s.style.display = prev;
+      out.push({ n: i + 1, id: s.id, fill: Math.round(fill * 100), issues: issues });
+    });
+    return out;
+  }
+  window.slidesCheck = slidesCheck;
+
+  function showCheck() {
+    var res = slidesCheck(), bad = res.filter(function (r) { return r.issues.length; });
+    var h = '<b>自检：' + res.length + ' 页，' + (bad.length ? '<span class="bad">' + bad.length + ' 页有问题</span>' : '<span class="ok">全部通过</span>') + '</b>（C 关闭）<br>';
+    res.forEach(function (r) {
+      h += '第 ' + r.n + ' 页 ' + (r.id ? '[' + r.id + '] ' : '') + '填充 ' + r.fill + '% ' +
+           (r.issues.length ? '<br><span class="bad">· ' + r.issues.join('<br>· ') + '</span>' : '<span class="ok">✓</span>') + '<br>';
+    });
+    panel.innerHTML = h; panel.classList.add('on');
+    if (window.console && console.table) console.table(res.map(function (r) { return { 页: r.n, id: r.id, 填充: r.fill + '%', 问题: r.issues.join('；') }; }));
+  }
+  function toggleCheck() { if (panel.classList.contains('on')) panel.classList.remove('on'); else showCheck(); }
+
+  window.addEventListener('resize', fit);
+  document.addEventListener('fullscreenchange', fit);
+  document.addEventListener('webkitfullscreenchange', fit);
+  window.addEventListener('mousemove', flashHint);
+  window.addEventListener('hashchange', function () {
+    var n = parseInt(location.hash.slice(1), 10);
+    if (n) show(n - 1, true);
+  });
+  window.addEventListener('keydown', function (e) {
+    var k = e.key;
+    if (['ArrowRight', 'ArrowDown', ' ', 'PageDown', 'Enter'].indexOf(k) >= 0) { e.preventDefault(); show(cur + 1); }
+    else if (['ArrowLeft', 'ArrowUp', 'PageUp', 'Backspace'].indexOf(k) >= 0) { e.preventDefault(); show(cur - 1); }
+    else if (k === 'Home') { show(0); }
+    else if (k === 'End') { show(slides.length - 1); }
+    else if (k === 'f' || k === 'F') { toggleFull(); }
+    else if (k === 'c' || k === 'C') { toggleCheck(); }
+    flashHint();
+  });
+  document.getElementById('stage').addEventListener('click', function (e) {
+    if (e.target.closest && e.target.closest('a')) return;
+    show(e.clientX < window.innerWidth * 0.33 ? cur - 1 : cur + 1);
+  });
+  var tx = null;
+  window.addEventListener('touchstart', function (e) { tx = e.touches[0].clientX; }, { passive: true });
+  window.addEventListener('touchend', function (e) {
+    if (tx === null) return;
+    var dx = e.changedTouches[0].clientX - tx; tx = null;
+    if (Math.abs(dx) > 50) show(cur + (dx < 0 ? 1 : -1));
+  }, { passive: true });
+
+  fit();
+  var n0 = parseInt(location.hash.slice(1), 10);
+  show(n0 ? n0 - 1 : 0, true);
+  flashHint();
+  if (/[?&]check\b/.test(location.search)) showCheck();
+})();
+</script>
+</body>
+</html>
