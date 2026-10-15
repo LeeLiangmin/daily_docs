@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>bot-metric 关系图</title>
+<style>
+:root{--bg:#fbfbfa;--fg:#1f2328;--muted:#59636e;--faint:#8c959f;--line:#d0d7de;--panel:#ffffff;--acc:#c2410c}
+@media (prefers-color-scheme: dark){:root{--bg:#16181b;--fg:#e6e8eb;--muted:#a3abb5;--faint:#6e7781;--line:#3a3f46;--panel:#1e2125;--acc:#f0a25a}}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei","Noto Sans CJK SC",sans-serif}
+main{max-width:1180px;margin:0 auto;padding:32px 16px 48px}
+h1{font-size:22px;font-weight:650;margin:0 0 4px}
+.sub{color:var(--muted);margin:0 0 20px;font-size:14px}
+figure{margin:0}
+.wrap{overflow-x:auto}
+svg{display:block;width:100%;min-width:900px;height:auto;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei","Noto Sans CJK SC",sans-serif}
+figcaption{color:var(--muted);font-size:14px;margin-top:12px}
+.notes{margin-top:20px;display:grid;gap:10px;font-size:14px}
+.notes p{margin:0}
+.notes b{font-weight:600}
+.box{fill:var(--panel);stroke:var(--line);stroke-width:1.2}
+.box.k{stroke:var(--fg);stroke-width:1.6}
+.chip{fill:none;stroke:var(--faint);stroke-width:1.1;stroke-dasharray:4 3}
+.ln{stroke:var(--muted);stroke-width:1.4;fill:none}
+.ln.d{stroke-dasharray:5 4}
+.ln.acc{stroke:var(--acc);stroke-width:2.2;fill:none}
+.ahf{fill:var(--muted)}
+.ahfa{fill:var(--acc)}
+.h{fill:var(--fg);font-size:13.5px;font-weight:650}
+.t{fill:var(--fg);font-size:11.5px}
+.m{fill:var(--muted);font-size:11.5px}
+.f{fill:var(--faint);font-size:11px}
+.lb{fill:var(--muted);font-size:11px}
+.a{fill:var(--acc)}
+.b{font-weight:650}
+.mono{font-family:ui-monospace,"Cascadia Mono","SF Mono",Menlo,Consolas,monospace}
+.sep{stroke:var(--line);stroke-width:1}
+</style>
+</head>
+<body>
+<main>
+<h1>问题、质量目标与门禁的关系</h1>
+<p class="sub">bot-metric 1.2.3，ripgrep 默认配置实测。虚线框是配置，实线框是产出。</p>
+
+<figure>
+<div class="wrap">
+<svg viewBox="0 64 1300 566" role="img" aria-label="规则对单个函数和文件判定，命中即为问题；度量汇总项目整体，质量目标给度量设上限，超标一项生成一条 BM005 问题；所有问题按阻塞策略计数决定门禁；质量目标无法判定或分析不完整让门禁变成 partial，致命错误为 failed。">
+<defs>
+<marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ahf"/></marker>
+<marker id="aha" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ahfa"/></marker>
+</defs>
+
+<!-- 源码 -->
+<rect class="box" x="20" y="260" width="110" height="150" rx="8"/>
+<text class="h" x="75" y="302" text-anchor="middle">Rust 源码</text>
+<text class="m" x="75" y="326" text-anchor="middle">ripgrep</text>
+<text class="t" x="75" y="350" text-anchor="middle">110 文件</text>
+<text class="t" x="75" y="370" text-anchor="middle">2,414 函数</text>
+
+<!-- 源码 → 规则 / 度量 / 分析诊断 -->
+<polyline class="ln" points="130,300 165,300 165,145 228,145" marker-end="url(#ah)"/>
+<text class="lb" x="197" y="138" text-anchor="middle">逐个对象</text>
+<line class="ln" x1="130" y1="364" x2="228" y2="364" marker-end="url(#ah)"/>
+<text class="lb" x="180" y="356" text-anchor="middle">汇总</text>
+<polyline class="ln d" points="130,395 165,395 165,556 228,556" marker-end="url(#ah)"/>
+<text class="lb" x="197" y="549" text-anchor="middle">分析出错</text>
+
+<!-- 规则 -->
+<rect class="box" x="230" y="80" width="200" height="130" rx="8"/>
+<text class="h" x="244" y="104">规则：判单个对象</text>
+<text class="t mono" x="244" y="126">BM001</text><text class="t" x="290" y="126">函数过长</text><text class="m" x="416" y="126" text-anchor="end">上限 50</text>
+<text class="t mono" x="244" y="144">BM003</text><text class="t" x="290" y="144">文件过大</text><text class="m" x="416" y="144" text-anchor="end">上限 2,000</text>
+<text class="t mono" x="244" y="162">BM004</text><text class="t" x="290" y="162">圈复杂度过高</text><text class="m" x="416" y="162" text-anchor="end">上限 20</text>
+<text class="t mono" x="244" y="180">BM002</text><text class="t" x="290" y="180">unsafe 使用</text><text class="m" x="416" y="180" text-anchor="end">出现即报</text>
+<text class="f mono" x="244" y="198">BM006/7</text><text class="f" x="302" y="198">重复</text><text class="f" x="416" y="198" text-anchor="end">默认关</text>
+
+<!-- [thresholds] -->
+<rect class="chip" x="230" y="236" width="200" height="36" rx="6"/>
+<text class="m mono" x="330" y="258" text-anchor="middle">[thresholds] 50 · 2,000 · 20</text>
+<line class="ln" x1="300" y1="236" x2="300" y2="212" marker-end="url(#ah)"/>
+<text class="lb" x="308" y="228">判单个对象</text>
+<line class="ln" x1="300" y1="272" x2="300" y2="302" marker-end="url(#ah)"/>
+<text class="lb" x="308" y="292">算超…占比（同一阈值）</text>
+
+<!-- 度量 -->
+<rect class="box" x="230" y="304" width="200" height="120" rx="8"/>
+<text class="h" x="244" y="328">度量：项目整体</text>
+<text class="m" x="244" y="350">65 项，只给数值，不判对错</text>
+<text class="t" x="244" y="372">平均文件代码行(AFS)</text><text class="t mono" x="416" y="372" text-anchor="end">370.5</text>
+<text class="t" x="244" y="392">超长函数占比(LFR)</text><text class="t mono" x="416" y="392" text-anchor="end">1.57%</text>
+<text class="t" x="244" y="412">函数达标率(FCR)</text><text class="t mono" x="416" y="412" text-anchor="end">98.3%</text>
+
+<!-- 分析诊断 -->
+<rect class="box" x="230" y="496" width="200" height="120" rx="8"/>
+<text class="h" x="244" y="520">分析诊断</text>
+<text class="t mono" x="244" y="542">BM1xx–BM4xx</text>
+<text class="m" x="244" y="562">模块、解析、编译器、配置出错</text>
+<text class="m" x="244" y="582">不是问题，不计入阻塞项</text>
+<text class="t" x="244" y="604">ripgrep：0 条</text>
+
+<!-- 度量 → 质量目标 -->
+<line class="ln" x1="430" y1="364" x2="488" y2="364" marker-end="url(#ah)"/>
+<text class="lb" x="459" y="356" text-anchor="middle">读取</text>
+
+<!-- [quality_targets] -->
+<rect class="chip" x="490" y="236" width="200" height="36" rx="6"/>
+<text class="m mono" x="590" y="251" text-anchor="middle">[quality_targets]</text>
+<text class="f" x="590" y="266" text-anchor="middle">增长率需 --baseline</text>
+<line class="ln" x1="590" y1="272" x2="590" y2="302" marker-end="url(#ah)"/>
+
+<!-- 质量目标 -->
+<rect class="box" x="490" y="304" width="200" height="120" rx="8"/>
+<text class="h" x="504" y="328">质量目标：给度量设上限</text>
+<text class="m" x="504" y="350">7 项</text>
+<text class="t a b" x="504" y="372">超标 1</text><text class="t a mono" x="676" y="372" text-anchor="end">AFS 370.5 &gt; 300</text>
+<text class="t" x="504" y="392">达标 5</text><text class="m" x="676" y="392" text-anchor="end">AFL、ACCN、DLD 等</text>
+<text class="t" x="504" y="412">不适用 1</text><text class="m" x="676" y="412" text-anchor="end">增长率(没有基线)</text>
+
+<!-- 规则 → 问题 -->
+<line class="ln" x1="430" y1="145" x2="798" y2="145" marker-end="url(#ah)"/>
+<text class="lb" x="614" y="137" text-anchor="middle">命中一次就是一条问题</text>
+
+<!-- 质量目标 → 问题（BM005） -->
+<polyline class="ln acc" points="690,350 745,350 745,230 796,230" marker-end="url(#aha)"/>
+<text class="t a b" x="737" y="292" text-anchor="end">超标 → BM005</text>
+
+<!-- 问题 -->
+<rect class="box" x="800" y="80" width="200" height="220" rx="8"/>
+<text class="h" x="814" y="104">问题：规则的命中</text>
+<text class="m" x="814" y="126">52 条，全部 warning</text>
+<text class="t mono" x="814" y="152">BM001</text><text class="t" x="860" y="152">函数过长</text><text class="t mono" x="986" y="152" text-anchor="end">38</text>
+<text class="t mono" x="814" y="172">BM004</text><text class="t" x="860" y="172">圈复杂度过高</text><text class="t mono" x="986" y="172" text-anchor="end">6</text>
+<text class="t mono" x="814" y="192">BM002</text><text class="t" x="860" y="192">unsafe 使用</text><text class="t mono" x="986" y="192" text-anchor="end">5</text>
+<text class="t mono" x="814" y="212">BM003</text><text class="t" x="860" y="212">文件过大</text><text class="t mono" x="986" y="212" text-anchor="end">2</text>
+<text class="t a mono b" x="814" y="234">BM005</text><text class="t a b" x="860" y="234">质量目标未达标</text><text class="t a mono b" x="986" y="234" text-anchor="end">1</text>
+<line class="sep" x1="814" y1="252" x2="986" y2="252"/>
+<text class="f" x="814" y="272">49 条到代码行，2 条到文件</text>
+<text class="f" x="814" y="290">BM005 位置是整个项目</text>
+
+<!-- 问题 → 门禁 -->
+<line class="ln" x1="1000" y1="190" x2="1098" y2="190" marker-end="url(#ah)"/>
+<text class="lb" x="1049" y="182" text-anchor="middle">按阻塞策略计数</text>
+
+<!-- 门禁 -->
+<rect class="box k" x="1100" y="140" width="180" height="160" rx="8"/>
+<text class="h" x="1114" y="166">门禁</text>
+<text class="t b" x="1114" y="190">ripgrep：blocked</text>
+<text class="t" x="1114" y="210">阻塞项 52</text>
+<text class="m" x="1114" y="230">check 退出码 1</text>
+<line class="sep" x1="1114" y1="244" x2="1266" y2="244"/>
+<text class="f" x="1114" y="262">判定顺序</text>
+<text class="f mono" x="1114" y="280">failed › blocked</text>
+<text class="f mono" x="1114" y="294">› partial › passed</text>
+
+<!-- [rules] 阻塞策略 -->
+<rect class="chip" x="1100" y="336" width="180" height="40" rx="6"/>
+<text class="m mono" x="1190" y="353" text-anchor="middle">[rules] 阻塞策略</text>
+<text class="f" x="1190" y="369" text-anchor="middle">默认 warning、error 都阻塞</text>
+<line class="ln" x1="1190" y1="336" x2="1190" y2="302" marker-end="url(#ah)"/>
+<text class="lb" x="1198" y="324">决定哪些算阻塞</text>
+
+<!-- 质量目标无法判定 → 门禁 -->
+<polyline class="ln d" points="590,424 590,452 1050,452 1050,250 1098,250" marker-end="url(#ah)"/>
+<text class="lb" x="820" y="445" text-anchor="middle">无法判定（如增长率没有基线）→ partial，仅在没有阻塞项时</text>
+
+<!-- 分析诊断 → 门禁 -->
+<polyline class="ln d" points="430,556 1070,556 1070,276 1098,276" marker-end="url(#ah)"/>
+<text class="lb" x="750" y="549" text-anchor="middle">分析不完整 → partial（没有阻塞项时）；致命错误 → failed，退出码 2</text>
+</svg>
+</div>
+<figcaption>规则和质量目标是两条进入「问题」的路；门禁只数问题。质量目标无法判定、分析不完整只会让门禁变成 partial，致命错误则是 failed。</figcaption>
+</figure>
+
+<div class="notes">
+<p><b>同一个阈值，两处使用。</b>[thresholds] 里的 50、2,000、20 既让规则判单个函数和文件，也是「超…占比」类度量的口径，所以超长函数占比的分子 38 就是 BM001 的条数。</p>
+<p><b>规则与质量目标不在同一层。</b>规则看单个对象（函数超过 50 行），质量目标看项目平均（平均函数代码行不超过 30）。ripgrep 有 38 个函数过长，平均却只有 8.52，达标。</p>
+<p><b>阻塞项取决于配置。</b>默认 warning、error 都阻塞，52 条全算；改成只阻塞 error，阻塞项变 0，此时门禁是 partial（增长率目标没有基线），带基线才是 passed。</p>
+<p><b>问题也反过来进度量。</b>函数达标率、文件达标率、静态告警密度由规则的判定结果计算，在质量目标之前算好，所以都不含 BM005。</p>
+<p><b>门禁的判定有先后。</b>先看是否致命错误（failed，退出码 2），再看阻塞项（blocked，退出码 1），然后才看是否不完整或无法判定（partial，退出码 3），都没有才是 passed（退出码 0）。所以有阻塞项时，分析不完整也显示 blocked。</p>
+</div>
+</main>
+</body>
+</html>
