@@ -1,0 +1,96 @@
+<!doctype html>
+<!-- 由 gen_review.py 生成。生成方法与填写约定见 README.md。 -->
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>规范评审对照稿</title>
+<style>
+:root {
+  --bg: #f4f5f2; --sheet: #ffffff; --ink: #1c2226; --ink-2: #4b555b; --ink-3: #7c868b; --line: #dde1dc;
+  --accent: #1f5f6b; --code-bg: #eef0ec;
+  --add-bg: #e3f3e6; --add-ink: #1e6b34; --add-strong: #b9e3c3;
+  --del-bg: #fbe8e6; --del-ink: #9a2b22; --del-strong: #f2c2bc;
+  --full: #2f7d47; --part: #a86b0c; --none: #8a8f93;
+  --f-display: "Noto Serif SC", "Songti SC", "SimSun", serif;
+  --f-body: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  --f-mono: "JetBrains Mono", "SFMono-Regular", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #14191c; --sheet: #1b2226; --ink: #e3e7e5; --ink-2: #aab3b6; --ink-3: #7d878b; --line: #2d363b;
+    --accent: #7cc3cf; --code-bg: #232c30;
+    --add-bg: #17301f; --add-ink: #8fd6a2; --add-strong: #245a35;
+    --del-bg: #3a1c1a; --del-ink: #f0a59c; --del-strong: #6b2b25;
+    --full: #6cc38a; --part: #e0a548; --none: #8d969a;
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 15px; line-height: 1.7; }
+code { font-family: var(--f-mono); font-size: .86em; background: var(--code-bg); padding: .05em .35em; border-radius: 3px; word-break: break-word; }
+a { color: var(--accent); }
+.wrap { max-width: 1200px; margin: 0 auto; padding: 28px 16px 64px; }
+.masthead { padding-bottom: 18px; border-bottom: 2px solid var(--ink); margin-bottom: 24px; }
+.masthead h1 { font-family: var(--f-display); font-size: clamp(26px, 4vw, 36px); line-height: 1.25; margin: 4px 0 0; }
+.panel, .rule { background: var(--sheet); border: 1px solid var(--line); border-radius: 8px; padding: 20px 22px; margin-bottom: 28px; min-width: 0; }
+.panel h2 { font-family: var(--f-display); font-size: 20px; margin: 0 0 12px; }
+.ovwrap, .diffwrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; }
+table.ov { min-width: 640px; }
+table.ov td, table.ov th { padding: 7px 10px; border-bottom: 1px solid var(--line); text-align: left; font-size: 14px; vertical-align: top; }
+table.ov th { font-size: 12px; color: var(--ink-3); font-weight: 500; }
+table.ov td:first-child { font-family: var(--f-mono); font-size: 13px; white-space: nowrap; }
+.sup { display: inline-block; font-size: 12px; padding: 1px 8px; border-radius: 10px; border: 1px solid currentColor; white-space: nowrap; line-height: 1.6; }
+.sup.full { color: var(--full); } .sup.part { color: var(--part); } .sup.none { color: var(--none); }
+.rule { scroll-margin-top: 16px; }
+.rhead { border-bottom: 1px solid var(--line); padding-bottom: 12px; margin-bottom: 16px; }
+.rid { font-family: var(--f-mono); font-size: 14px; color: var(--accent); font-weight: 600; }
+.rcat { font-family: var(--f-body); font-weight: 400; color: var(--ink-3); font-size: 12px; margin: 0 8px; }
+.rhead h2 { font-family: var(--f-display); font-size: 21px; line-height: 1.4; margin: 4px 0 0; }
+.rule h3 { font-size: 14px; font-weight: 700; margin: 22px 0 8px; }
+.kv { display: grid; gap: 4px; font-size: 13px; }
+.kv > div { display: flex; gap: 4px; align-items: baseline; }
+.lk { font-size: 11px; color: var(--ink-3); width: 5em; flex: none; }
+.lv { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; }
+.muted { color: var(--ink-3); }
+table.diff { font-family: var(--f-mono); font-size: 12.5px; line-height: 1.55; table-layout: fixed; min-width: 760px; border: 1px solid var(--line); }
+table.diff col.c-ln { width: 3.2em; }
+table.diff thead th { font-family: var(--f-body); font-size: 12px; font-weight: 500; color: var(--ink-3); text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); background: var(--bg); }
+table.diff td { padding: 1px 8px; vertical-align: top; white-space: pre-wrap; word-break: break-word; }
+table.diff td.ln { color: var(--ink-3); text-align: right; user-select: none; padding-right: 6px; border-right: 1px solid var(--line); }
+tr.del td.a, tr.chg td.a { background: var(--del-bg); }
+tr.add td.b, tr.chg td.b { background: var(--add-bg); }
+tr.del td.b, tr.add td.a { background: repeating-linear-gradient(135deg, transparent 0 6px, var(--line) 6px 7px); }
+del { background: var(--del-strong); color: var(--del-ink); text-decoration: none; border-radius: 2px; }
+ins { background: var(--add-strong); color: var(--add-ink); text-decoration: none; border-radius: 2px; }
+@media (max-width: 860px) { .wrap { padding: 16px 12px 48px; } .panel, .rule { padding: 16px 14px; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="masthead"><h1>规范评审对照稿</h1></header>
+
+  <section class="panel">
+    <h2>总览</h2>
+    <div class="ovwrap"><table class="ov">
+      <thead><tr><th>条款</th><th>标题</th><th>定级</th><th>检测能力</th></tr></thead>
+      <tbody><tr><td><a href="#G-EXP-01">G.EXP.01</a></td><td>避免复合条件表达式永远为 true 或 false</td><td>建议</td><td><span class="sup part">部分支持</span></td></tr></tbody>
+    </table></div>
+  </section>
+
+<section class="rule" id="G-EXP-01">
+  <header class="rhead">
+    <div class="rid">G.EXP.01<span class="rcat">表达式与流程控制</span><span class="sup part">部分支持</span></div>
+    <h2>避免复合条件表达式永远为 true 或 false</h2>
+  </header>
+  <h3>定级</h3>
+  <div class="kv"><div><span class="lk">原定级</span><span class="lv">建议</span></div><div><span class="lk">现定级</span><span class="lv">建议</span></div></div>
+  <h3>lint</h3>
+  <div class="kv"><div><span class="lk">原 lint</span><span class="lv"><code>clippy::bad_bit_mask</code></span></div><div><span class="lk">现 lint</span><span class="lv"><code>clippy::bad_bit_mask</code><code>clippy::overly_complex_bool_expr</code><code>clippy::impossible_comparisons</code><code>clippy::absurd_extreme_comparisons</code><code>unused_comparisons</code><code>clippy::eq_op</code></span></div></div>
+  <h3>文本对照</h3>
+  <div class="diffwrap"><table class="diff"><colgroup><col class="c-ln"><col><col class="c-ln"><col></colgroup><thead><tr><th></th><th>原文</th><th></th><th>修订稿</th></tr></thead><tbody><tr class="chg"><td class="ln">1</td><td class="tx a">### G.EXP.01 避免<del>复合</del>条件表达式永远为 true 或 false</td><td class="ln">1</td><td class="tx b">### G.EXP.01 避免条件表达式永远为 true 或 false</td></tr><tr class="eq"><td class="ln">2</td><td class="tx a">&#8203;</td><td class="ln">2</td><td class="tx b">&#8203;</td></tr><tr class="eq"><td class="ln">3</td><td class="tx a">**【级别】** 建议</td><td class="ln">3</td><td class="tx b">**【级别】** 建议</td></tr><tr class="eq"><td class="ln">4</td><td class="tx a">&#8203;</td><td class="ln">4</td><td class="tx b">&#8203;</td></tr><tr class="eq"><td class="ln">5</td><td class="tx a">**【描述】**</td><td class="ln">5</td><td class="tx b">**【描述】**</td></tr><tr class="eq"><td class="ln">6</td><td class="tx a">&#8203;</td><td class="ln">6</td><td class="tx b">&#8203;</td></tr><tr class="chg"><td class="ln">7</td><td class="tx a"><del>复合</del>条件表达式永远为 true 或 false 通常是因为代码编写错误。</td><td class="ln">7</td><td class="tx b">条件表达式永远为 true 或 false 通常是因为代码编写错误。</td></tr><tr class="eq"><td class="ln">8</td><td class="tx a">&#8203;</td><td class="ln">8</td><td class="tx b">&#8203;</td></tr><tr class="eq"><td class="ln">9</td><td class="tx a">**【反例】**</td><td class="ln">9</td><td class="tx b">**【反例】**</td></tr><tr class="eq"><td class="ln">10</td><td class="tx a">&#8203;</td><td class="ln">10</td><td class="tx b">&#8203;</td></tr><tr class="eq"><td class="ln">11</td><td class="tx a">```rust</td><td class="ln">11</td><td class="tx b">```rust</td></tr><tr class="eq"><td class="ln">12</td><td class="tx a">let x = 2;</td><td class="ln">12</td><td class="tx b">let x = 2;</td></tr><tr class="eq"><td class="ln">13</td><td class="tx a">if (x &amp; 1) == 2 { // 不符合：该表达式会永远是 false</td><td class="ln">13</td><td class="tx b">if (x &amp; 1) == 2 { // 不符合：该表达式会永远是 false</td></tr><tr class="eq"><td class="ln">14</td><td class="tx a">    // ...</td><td class="ln">14</td><td class="tx b">    // ...</td></tr><tr class="eq"><td class="ln">15</td><td class="tx a">}</td><td class="ln">15</td><td class="tx b">}</td></tr><tr class="eq"><td class="ln">16</td><td class="tx a">&#8203;</td><td class="ln">16</td><td class="tx b">&#8203;</td></tr><tr class="eq"><td class="ln">17</td><td class="tx a">if (x &amp; 3) &lt; 4 { // 不符合：判断表达式结果永远为 true</td><td class="ln">17</td><td class="tx b">if (x &amp; 3) &lt; 4 { // 不符合：判断表达式结果永远为 true</td></tr><tr class="eq"><td class="ln">18</td><td class="tx a">    // ...</td><td class="ln">18</td><td class="tx b">    // ...</td></tr><tr class="eq"><td class="ln">19</td><td class="tx a">}</td><td class="ln">19</td><td class="tx b">}</td></tr><tr class="eq"><td class="ln">20</td><td class="tx a">&#8203;</td><td class="ln">20</td><td class="tx b">&#8203;</td></tr><tr class="eq"><td class="ln">21</td><td class="tx a">let y = 0;</td><td class="ln">21</td><td class="tx b">let y = 0;</td></tr><tr class="eq"><td class="ln">22</td><td class="tx a">if (x &lt; y) &amp;&amp; false { // 不符合：判断表达式结果永远为 false</td><td class="ln">22</td><td class="tx b">if (x &lt; y) &amp;&amp; false { // 不符合：判断表达式结果永远为 false</td></tr><tr class="eq"><td class="ln">23</td><td class="tx a">    // ...</td><td class="ln">23</td><td class="tx b">    // ...</td></tr><tr class="eq"><td class="ln">24</td><td class="tx a">}</td><td class="ln">24</td><td class="tx b">}</td></tr><tr class="add"><td class="ln"></td><td class="tx a">&#8203;</td><td class="ln">25</td><td class="tx b">&#8203;</td></tr><tr class="add"><td class="ln"></td><td class="tx a">&#8203;</td><td class="ln">26</td><td class="tx b">if x &gt; 10 &amp;&amp; x &lt; 5 { // 不符合：区间矛盾，永远为 false</td></tr><tr class="add"><td class="ln"></td><td class="tx a">&#8203;</td><td class="ln">27</td><td class="tx b">    // ...</td></tr><tr class="add"><td class="ln"></td><td class="tx a">&#8203;</td><td class="ln">28</td><td class="tx b">}</td></tr><tr class="eq"><td class="ln">25</td><td class="tx a">```</td><td class="ln">29</td><td class="tx b">```</td></tr><tr class="eq"><td class="ln">26</td><td class="tx a">&#8203;</td><td class="ln">30</td><td class="tx b">&#8203;</td></tr><tr class="eq"><td class="ln">27</td><td class="tx a">**【正例】**</td><td class="ln">31</td><td class="tx b">**【正例】**</td></tr><tr class="eq"><td class="ln">28</td><td class="tx a">&#8203;</td><td class="ln">32</td><td class="tx b">&#8203;</td></tr><tr class="eq"><td class="ln">29</td><td class="tx a">```rust</td><td class="ln">33</td><td class="tx b">```rust</td></tr><tr class="eq"><td class="ln">30</td><td class="tx a">let x = 2;</td><td class="ln">34</td><td class="tx b">let x = 2;</td></tr><tr class="eq"><td class="ln">31</td><td class="tx a">// 符合</td><td class="ln">35</td><td class="tx b">// 符合</td></tr><tr class="eq"><td class="ln">32</td><td class="tx a">if x == 2 {</td><td class="ln">36</td><td class="tx b">if x == 2 {</td></tr><tr class="eq"><td class="ln">33</td><td class="tx a">    // ...</td><td class="ln">37</td><td class="tx b">    // ...</td></tr><tr class="eq"><td class="ln">34</td><td class="tx a">}</td><td class="ln">38</td><td class="tx b">}</td></tr><tr class="eq"><td class="ln">35</td><td class="tx a">```</td><td class="ln">39</td><td class="tx b">```</td></tr></tbody></table></div>
+</section>
+</div>
+</body>
+</html>

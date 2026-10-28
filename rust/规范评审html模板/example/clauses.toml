@@ -1,0 +1,17 @@
+# 每条规范一个 [[clause]]，输出顺序即书写顺序；没有写进来的条款不会输出。
+# 标题、分类、定级、文本对照都从 原文.md / 修订稿.md 中自动提取，这里只写 md 里没有的信息。
+
+[[clause]]
+id = "G.EXP.01"                 # 与 md 中「### 条款ID 标题」的 ID 一致
+support = "部分支持"             # 检测能力：完全支持 / 部分支持 / 不支持
+lint_old = ["clippy::bad_bit_mask"]   # 原 lint；没有写 []
+lint_new = [                    # 现 lint；rustc lint 不带前缀，Clippy lint 带 clippy::
+  "clippy::bad_bit_mask",
+  "clippy::overly_complex_bool_expr",
+  "clippy::impossible_comparisons",
+  "clippy::absurd_extreme_comparisons",
+  "unused_comparisons",
+  "clippy::eq_op",
+]
+# level = "原则"                # 仅当 md 中没有「**【级别】**」行（如原则类条款）时需要
+# category = "表达式与流程控制"  # 可选，覆盖从「## 分类」标题取到的分类
